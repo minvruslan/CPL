@@ -76,15 +76,15 @@ namespace cpl {
 
 		#if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
 			SOCKET getHandle() const;
-        #elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-            int32_t getHandle() const;
+        	#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
+            		int32_t getHandle() const;
 		#endif
 		private:
-        #if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
+        	#if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
 			SOCKET  socketHandle_;
-        #elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-            int32_t socketHandle_;
-        #endif
+        	#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
+            		int32_t socketHandle_;
+        	#endif
 		};
 
 		inline PortNum::PortNum() {
@@ -115,13 +115,13 @@ namespace cpl {
 		{}
 
 		inline bool IpAddress::setIp(std::string ip) {
-            sockaddr_in sa;
-            int32_t result =  inet_pton(AF_INET, ip.data(), &(sa.sin_addr));
-            if (result != 0) {
+            		sockaddr_in sa;
+            		int32_t result =  inet_pton(AF_INET, ip.data(), &(sa.sin_addr));
+            		if (result != 0) {
 				ip_ = ip;
 				return true;
 			}
-            else {
+            		else {
 				return false;
 			}
 		}
@@ -139,11 +139,11 @@ namespace cpl {
 		}
 
 		inline UdpSocket::UdpSocket() {
-        #if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
+        	#if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
 			socketHandle_ = INVALID_SOCKET;
-        #elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-            socketHandle_ = 0;
-        #endif
+        	#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
+            		socketHandle_ = 0;
+        	#endif
 		}
 
 		inline UdpSocket::~UdpSocket() {
@@ -151,8 +151,8 @@ namespace cpl {
 		}
 
 		inline bool UdpSocket::open(const uint16_t& port, const bool& nonBlockungModeFlag) {
-        #if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
-            socketHandle_ = socket(AF_INET, SOCK_DGRAM, 0);
+        	#if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
+            		socketHandle_ = socket(AF_INET, SOCK_DGRAM, 0);
 
 			if (socketHandle_ == INVALID_SOCKET)
 				return false;
@@ -176,58 +176,58 @@ namespace cpl {
 			}
 
 			return true;
-        #elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-            socketHandle_ = ::socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP );
+        	#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
+            		socketHandle_ = ::socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP );
 
-            if ( socketHandle_ <= 0 )
-                return false;
+            		if ( socketHandle_ <= 0 )
+                		return false;
 
-            sockaddr_in address;
-            address.sin_family = AF_INET;
-            address.sin_addr.s_addr = INADDR_ANY;
-            address.sin_port = htons((uint16_t)port);
+            		sockaddr_in address;
+            		address.sin_family = AF_INET;
+            		address.sin_addr.s_addr = INADDR_ANY;
+            		address.sin_port = htons((uint16_t)port);
 
-            if (::bind( socketHandle_, (const sockaddr*)&address, sizeof(sockaddr_in) ) < 0) {
-                this->close();
-                return false;
-            }
+            		if (::bind( socketHandle_, (const sockaddr*)&address, sizeof(sockaddr_in) ) < 0) {
+                		this->close();
+                		return false;
+            		}
 
-            if (nonBlockungModeFlag) {
-                int32_t nonBlocking = 1;
-                if ( fcntl( socketHandle_, F_SETFL, O_NONBLOCK, nonBlocking ) == -1 ) {
-                    this->close();
-                    return false;
-                }
-            }
+            		if (nonBlockungModeFlag) {
+                		int32_t nonBlocking = 1;
+                		if ( fcntl( socketHandle_, F_SETFL, O_NONBLOCK, nonBlocking ) == -1 ) {
+                    			this->close();
+                    			return false;
+                		}
+            		}
 
-            return true;
-        #endif
+            		return true;
+        	#endif
 		}
 
 		inline bool UdpSocket::isOpen() const {
-        #if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
+        	#if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
 			return (socketHandle_ != INVALID_SOCKET);
-        #elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-            return socketHandle_ != 0;
-        #endif
+        	#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
+            		return socketHandle_ != 0;
+        	#endif
 		}
 
 		inline void UdpSocket::close() {
-        #if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
+        	#if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
 			if (socketHandle_ != INVALID_SOCKET) {
 				::closesocket(socketHandle_);
 				socketHandle_ = INVALID_SOCKET;
 			}
-        #elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-            if (socketHandle_ != 0) {
-                ::close(socketHandle_);
-                socketHandle_ = 0;
-            }
-        #endif
+        	#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
+            		if (socketHandle_ != 0) {
+                		::close(socketHandle_);
+                		socketHandle_ = 0;
+            		}
+        	#endif
 		}
 
 		inline int32_t UdpSocket::receiveFrom(uint8_t* bufPtr, uint16_t bufSize, IpAddress& ipAddress) {
-        #if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
+        	#if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
 			if (socketHandle_ == INVALID_SOCKET)
 				return CPL_INVALID_SOCKET;
 
@@ -238,42 +238,42 @@ namespace cpl {
 			int senderAddrSize = sizeof(senderAddr);
 
 			int32_t receivedBytes = recvfrom(socketHandle_,
-											 reinterpret_cast<char*>(bufPtr),
-											 bufSize,
-											 0,
-											 (SOCKADDR*)& senderAddr,
-											 &senderAddrSize);
+							 reinterpret_cast<char*>(bufPtr),
+							 bufSize,
+							 0,
+							 (SOCKADDR*)& senderAddr,
+							 &senderAddrSize);
 
 			if (receivedBytes != SOCKET_ERROR && receivedBytes >= 0)
 				return receivedBytes;
 			else
 				return CPL_SOCKET_ERROR;
-        #elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-            if (socketHandle_ == 0)
-                return CPL_INVALID_SOCKET;
+        	#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
+            		if (socketHandle_ == 0)
+                		return CPL_INVALID_SOCKET;
 
-            if (bufSize <= 0)
-                return CPL_INVALID_BUFFER;
+            		if (bufSize <= 0)
+                		return CPL_INVALID_BUFFER;
 
-            sockaddr_in senderAddr;
-            socklen_t senderAddrSize = sizeof(senderAddr);
+            		sockaddr_in senderAddr;
+            		socklen_t senderAddrSize = sizeof(senderAddr);
 
-            int32_t receivedBytes = recvfrom(socketHandle_,
-                                             reinterpret_cast<char*>(bufPtr),
-                                             bufSize,
-                                             0,
-                                             (sockaddr*)&senderAddr,
-                                             &senderAddrSize);
+            		int32_t receivedBytes = recvfrom(socketHandle_,
+                                                 	 reinterpret_cast<char*>(bufPtr),
+                                                 	 bufSize,
+                                                 	 0,
+                                                 	 (sockaddr*)&senderAddr,
+                                                 	 &senderAddrSize);
 
-            if (receivedBytes >= 0)
-                return receivedBytes;
-            else
-                return CPL_SOCKET_ERROR;
-        #endif
+            		if (receivedBytes >= 0)
+                		return receivedBytes;
+            		else
+                		return CPL_SOCKET_ERROR;
+        	#endif
 		}
 
 		inline int32_t UdpSocket::sendTo(uint8_t* bufPtr, uint16_t bufSize, IpAddress& ipAddress) {
-        #if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
+        	#if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
 			if (socketHandle_ == INVALID_SOCKET)
 				return CPL_INVALID_SOCKET;
 
@@ -290,48 +290,48 @@ namespace cpl {
 				dest_addr_.sin_addr.s_addr = ((unsigned long**)hostent->h_addr_list)[0][0];
 
 			int32_t bytesSend = ::sendto(socketHandle_,
-										 reinterpret_cast<const char*>(bufPtr),
-										 bufSize,
-										 0,
-										 (sockaddr*)&dest_addr_,
-										 sizeof(sockaddr_in));
+						     reinterpret_cast<const char*>(bufPtr),
+						     bufSize,
+						     0,
+						     (sockaddr*)&dest_addr_,
+						     sizeof(sockaddr_in));
 			
 			if (bytesSend != SOCKET_ERROR && bytesSend >= 0)
 				return bytesSend;
 			else
 				return CPL_SOCKET_ERROR;
-        #elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-            if (socketHandle_ == 0)
-                return CPL_INVALID_SOCKET;
+        	#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
+            		if (socketHandle_ == 0)
+                		return CPL_INVALID_SOCKET;
 
-            if (bufSize <= 0 || bufSize > CPL_UDP_MESSAGE_MAX_SIZE)
-                return CPL_INVALID_BUFFER;
+            		if (bufSize <= 0 || bufSize > CPL_UDP_MESSAGE_MAX_SIZE)
+                		return CPL_INVALID_BUFFER;
 
-            sockaddr_in destAddress;
-            destAddress.sin_family = AF_INET;
-            inet_aton(ipAddress.getIp().data(), &destAddress.sin_addr);
-            destAddress.sin_port = htons(ipAddress.getPortNum().getPortNum());
+            		sockaddr_in destAddress;
+            		destAddress.sin_family = AF_INET;
+            		inet_aton(ipAddress.getIp().data(), &destAddress.sin_addr);
+            		destAddress.sin_port = htons(ipAddress.getPortNum().getPortNum());
 
-            int32_t bytesSend = sendto(socketHandle_,
-                                       reinterpret_cast<const char*>(bufPtr),
-                                       bufSize,
-                                       0,
-                                       (sockaddr*)&destAddress,
-                                       sizeof(sockaddr_in));
+            		int32_t bytesSend = sendto(socketHandle_,
+                                       		   reinterpret_cast<const char*>(bufPtr),
+                                       		   bufSize,
+                                       		   0,
+                                       		   (sockaddr*)&destAddress,
+                                       		   sizeof(sockaddr_in));
 
-            if (bytesSend >= 0)
-                return bytesSend;
-            else
-                return CPL_SOCKET_ERROR;
-        #endif
+            		if (bytesSend >= 0)
+                		return bytesSend;
+            		else
+                		return CPL_SOCKET_ERROR;
+        	#endif
 		}
 
 		#if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
 		inline SOCKET UdpSocket::getHandle() const {
 			return socketHandle_;
 		}
-        #elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-        inline int32_t UdpSocket::getHandle() const {
+        	#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
+        	inline int32_t UdpSocket::getHandle() const {
 			return socketHandle_;
 		}
 		#endif
