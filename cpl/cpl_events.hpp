@@ -41,68 +41,68 @@ namespace cpl {
 			Event();
 			~Event();
 			bool initializeEvent();
-            bool initializeEventFromSocketHandle(int32_t socketHandle) {
-                handle_ = socketHandle;
-            }
-			bool initializeEvent(cpl::sockets::UdpSocket& udpSocket);
+            		bool initializeEventFromSocketHandle(int32_t socketHandle) {
+                		handle_ = socketHandle;
+            		}
+	    		bool initializeEvent(cpl::sockets::UdpSocket& udpSocket);
 			bool setEvent();
 			bool isSignaled() const;
 			bool resetEvent();
 
 		#if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
 			WSAEVENT getHandle() const;
-        #elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-            int32_t getHandle() const;
+        	#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
+            		int32_t getHandle() const;
 		#endif
 		private:
-            bool signaled_;
+            		bool signaled_;
 		#if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
 			WSAEVENT handle_;
 		#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-            int32_t handle_;
+            		int32_t handle_;
 		#endif
 		};
 
-        #if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
-        constexpr WSAEVENT CPL_INVALID_EVENT = WSA_INVALID_EVENT;
+        	#if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
+        	constexpr WSAEVENT CPL_INVALID_EVENT = WSA_INVALID_EVENT;
 		constexpr uint32_t CPL_WFE_INFINITE_WAIT = INFINITE;
 		constexpr uint32_t CPL_WFE_EVENT_0_SIGNALED = WAIT_OBJECT_0;
 		constexpr uint32_t CPL_WFE_TIME_IS_UP = WAIT_TIMEOUT;
 		constexpr uint32_t CPL_WFE_FAILED = WAIT_FAILED;
-        #elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-        constexpr int32_t  CPL_INVALID_EVENT = -1;
-        constexpr uint32_t CPL_WFE_INFINITE_WAIT = 0xffffffff;
-        constexpr uint32_t CPL_WFE_EVENT_0_SIGNALED = 0;
-        constexpr uint32_t CPL_WFE_TIME_IS_UP = 1001;
-        constexpr uint32_t CPL_WFE_FAILED = 1000;
-        #endif
+        	#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
+        	constexpr int32_t  CPL_INVALID_EVENT = -1;
+        	constexpr uint32_t CPL_WFE_INFINITE_WAIT = 0xffffffff;
+        	constexpr uint32_t CPL_WFE_EVENT_0_SIGNALED = 0;
+        	constexpr uint32_t CPL_WFE_TIME_IS_UP = 1001;
+        	constexpr uint32_t CPL_WFE_FAILED = 1000;
+        	#endif
 
 		uint32_t waitForEvent(Event* event, uint32_t milliseconds = 0);
 		uint32_t waitForEvents(std::vector<Event *> *events, bool waitAll, uint32_t milliseconds = 0);
 
 		inline Event::Event() :
-            signaled_(false),
-            handle_(CPL_INVALID_EVENT)
-        {}
+            		signaled_(false),
+            		handle_(CPL_INVALID_EVENT)
+        	{}
 
 		inline Event::~Event() {
-		    if (handle_ != CPL_INVALID_EVENT) {
-            #if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
-                ::WSACloseEvent(handle_);
-            #elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-                close(handle_);
-            #endif
-            }
+			if (handle_ != CPL_INVALID_EVENT) {
+            	#if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
+                		::WSACloseEvent(handle_);
+            	#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
+                		close(handle_);
+            	#endif
+            		}
 		}
 
 
 		inline bool Event::initializeEvent() {
 		#if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
-            handle_ = ::WSACreateEvent();
-        #elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-            handle_ = eventfd(0, EFD_NONBLOCK);
-        #endif
-            return handle_ != CPL_INVALID_EVENT;
+            		handle_ = ::WSACreateEvent();
+        	#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
+            		handle_ = eventfd(0, EFD_NONBLOCK);
+        	#endif
+            		return handle_ != CPL_INVALID_EVENT;
 		}
 
 		// FIX
@@ -114,7 +114,7 @@ namespace cpl {
 				return false;
 			return true;
 		#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-            if(!udpSocket.isOpen())
+            		if(!udpSocket.isOpen())
 				return false;
 			handle_ = udpSocket.getHandle();
 			return true;
@@ -122,25 +122,25 @@ namespace cpl {
 		}
 
 		inline bool Event::setEvent() {
-            if (handle_ == CPL_INVALID_EVENT) {
-                signaled_ = false;
-                return false;
-            }
-            signaled_ = true;
+            		if (handle_ == CPL_INVALID_EVENT) {
+                		signaled_ = false;
+                		return false;
+            		}
+            		signaled_ = true;
 		#if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
-            uint32_t result = ::WSASetEvent(handle_);
+            		uint32_t result = ::WSASetEvent(handle_);
 			if (result == false)
 				signaled_ = false;
 			return result;
-        #elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-            int32_t result =  eventfd_write(handle_, 1);
-            if (result == -1) {
-                signaled_ = false;
-                return false;
-            }
-            else {
-                return true;
-            }
+        	#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
+            		int32_t result =  eventfd_write(handle_, 1);
+            		if (result == -1) {
+                		signaled_ = false;
+                		return false;
+            		}
+            		else {
+                		return true;
+            		}
 		#endif
 		}
 
@@ -149,16 +149,16 @@ namespace cpl {
 		}
 
 		inline bool Event::resetEvent() {
-            if (!signaled_)
-                return true;
-            signaled_ = false;
-            if (handle_ == CPL_INVALID_EVENT)
-                return false;
+            		if (!signaled_)
+                		return true;
+            		signaled_ = false;
+            		if (handle_ == CPL_INVALID_EVENT)
+                		return false;
 		#if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
 			return ::WSAResetEvent(handle_);
 		#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-            eventfd_t eventfdt;
-            return eventfd_read(handle_, &eventfdt) != -1;
+            		eventfd_t eventfdt;
+            		return eventfd_read(handle_, &eventfdt) != -1;
 		#endif
 		}
 
@@ -167,9 +167,9 @@ namespace cpl {
 			return handle_;
 		}
 		#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-        inline int32_t Event::getHandle() const {
-            return handle_;
-        }
+        	inline int32_t Event::getHandle() const {
+            		return handle_;
+        		}
 		#endif
 
 		inline uint32_t waitForEvent(Event* event, uint32_t milliseconds) {
@@ -197,24 +197,24 @@ namespace cpl {
 					return CPL_WFE_FAILED;
 			}
 		#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-            int32_t epfd = epoll_create(1);
-            if (epfd < 0)
-                return 1000;
+            		int32_t epfd = epoll_create(1);
+            		if (epfd < 0)
+                		return 1000;
 
-            epoll_event epEvent;
-            epEvent.data.fd = event->getHandle();
-            epEvent.events = EPOLLIN;
-            epoll_ctl(epfd, EPOLL_CTL_ADD, event->getHandle(), &epEvent);
-            epoll_event* epEvents = new epoll_event[1];
-            int32_t result = epoll_wait(epfd, epEvents, 1, -1);
+            		epoll_event epEvent;
+            		epEvent.data.fd = event->getHandle();
+            		epEvent.events = EPOLLIN;
+            		epoll_ctl(epfd, EPOLL_CTL_ADD, event->getHandle(), &epEvent);
+            		epoll_event* epEvents = new epoll_event[1];
+            		int32_t result = epoll_wait(epfd, epEvents, 1, -1);
 
-            close(epfd);
-            delete[] epEvents;
+            		close(epfd);
+            		delete[] epEvents;
 
-            if (result == -1)
-                return 1000;
-            else
-                return 1;
+            		if (result == -1)
+                		return 1000;
+            		else
+                		return 1;
 		#endif
 		}
 
@@ -249,60 +249,59 @@ namespace cpl {
 				else
 					return CPL_WFE_FAILED;			
 			}
-        #elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-            if(events->size() + 1 > 64)
-                return 1000;
+        	#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
+            		if(events->size() + 1 > 64)
+                		return 1000;
 
-            int32_t epfd = epoll_create(events->size());
+            		int32_t epfd = epoll_create(events->size());
 
-            if (epfd < 0)
-                return 1000;
+            		if (epfd < 0)
+                		return 1000;
 
-            for(auto event : *events) {
-                epoll_event epEvent;
-                epEvent.data.fd = event->getHandle();
-                epEvent.events = EPOLLIN | EPOLLRDHUP;
-                epoll_ctl(epfd, EPOLL_CTL_ADD, event->getHandle(), &epEvent);
-            }
+            		for(auto event : *events) {
+                		epoll_event epEvent;
+                		epEvent.data.fd = event->getHandle();
+                		epEvent.events = EPOLLIN | EPOLLRDHUP;
+                		epoll_ctl(epfd, EPOLL_CTL_ADD, event->getHandle(), &epEvent);
+            		}
 
-            epoll_event* epEvents = new epoll_event[events->size()];
-            int32_t result;
-            if(milliseconds == CPL_WFE_INFINITE_WAIT)
-                result = epoll_wait(epfd, epEvents, events->size(), -1);
-            else
-                result = epoll_wait(epfd, epEvents, events->size(), milliseconds);
-            close(epfd);
+            		epoll_event* epEvents = new epoll_event[events->size()];
+            		int32_t result;
+            		if(milliseconds == CPL_WFE_INFINITE_WAIT)
+                		result = epoll_wait(epfd, epEvents, events->size(), -1);
+            		else
+                		result = epoll_wait(epfd, epEvents, events->size(), milliseconds);
+            		close(epfd);
 
 
-            if (result == -1) {
-                delete[] epEvents;
-                return CPL_WFE_FAILED;
-            }
-            else if(milliseconds != CPL_WFE_INFINITE_WAIT && result == 0) {
-                delete[] epEvents;
-                return CPL_WFE_TIME_IS_UP;
-            }
-            else {
-                uint32_t i = 0;
-                uint32_t eventNum = 0;
-                bool breakLoop = false;
-                for(auto event : *events) {
-                    for (i = 0; i < result; i++) {
-                        if (epEvents[i].data.fd == event->getHandle()) {
-                            breakLoop = true;
-                            break;
-                        }
-                    }
+            		if (result == -1) {
+                		delete[] epEvents;
+                		return CPL_WFE_FAILED;
+            		}
+            		else if(milliseconds != CPL_WFE_INFINITE_WAIT && result == 0) {
+                		delete[] epEvents;
+                		return CPL_WFE_TIME_IS_UP;
+           		}
+            		else {
+                		uint32_t i = 0;
+                		uint32_t eventNum = 0;
+                		bool breakLoop = false;
+                		for(auto event : *events) {
+                    			for (i = 0; i < result; i++) {
+                        			if (epEvents[i].data.fd == event->getHandle()) {
+                            				breakLoop = true;
+                            				break;
+                        			}
+                    			}
 
-                    if (breakLoop)
-                        break;
-                    else
-                        eventNum++;
-                }
-                delete[] epEvents;
-                return eventNum;
-            }
-
+                    			if (breakLoop)
+                        			break;
+                    			else
+                        			eventNum++;
+                		}
+                		delete[] epEvents;
+                		return eventNum;
+            		}
 		#endif
 		}
 	}
