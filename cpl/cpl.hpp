@@ -59,12 +59,12 @@ namespace cpl {
 		else
 			return true;
 	#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
-        return true;
+        	return true;
 	#endif
 	}
 
 	inline void shutdown() {
-    #if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
+    	#if CPL_PLATFORM == CPL_PLATFORM_WINDOWS_NT
 		WSACleanup();
 	#elif CPL_PLATFORM == CPL_PLATFORM_LINUX_KERNEL
 		return;
