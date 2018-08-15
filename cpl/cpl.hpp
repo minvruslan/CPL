@@ -390,11 +390,18 @@ static uint32_t EventExpectant::waitForEvent( Event* event, uint32_t millisecond
 
     epoll_event epollEvents[ 1 ];
 
-    int32_t result = epoll_wait( epollFD, epollEvents, 1, -1 );
+    int32_t waitResult = CPL_EE_WFE_ERROR_FAILED;
+
+    if ( milliseconds == CPL_EE_WFE_INFINITE_WAIT ) {
+        waitResult = epoll_wait( epollFD, epollEvents, 1, -1 );
+    }
+    else {
+        waitResult = epoll_wait( epollFD, epollEvents, 1, milliseconds );
+    }
 
     close( epollFD );
 
-    if ( result == -1 ) {
+    if ( waitResult == -1 ) {
         return CPL_EE_WFE_ERROR_FAILED;
     }
     else {
@@ -431,21 +438,22 @@ static uint32_t EventExpectant::waitForEvents( std::vector<Event*>* events,
 
     epoll_event* epollEvents = new epoll_event[ events->size() ];
 
-    int32_t result;
+    int32_t waitResult = CPL_EE_WFE_ERROR_FAILED;
+    
     if( milliseconds == CPL_EE_WFE_INFINITE_WAIT ) {
-        result = epoll_wait( epollFD, epollEvents, events->size(), -1 );
+        waitResult = epoll_wait( epollFD, epollEvents, events->size(), -1 );
     }
     else {
-        result = epoll_wait( epollFD, epollEvents, events->size(), milliseconds );
+        waitResult = epoll_wait( epollFD, epollEvents, events->size(), milliseconds );
     }
 
     close( epollFD );
 
-    if ( result == -1 ) {
+    if ( waitResult == -1 ) {
         delete[] epollEvents;
         return CPL_EE_WFE_ERROR_FAILED;
     }
-    else if ( milliseconds != CPL_EE_WFE_INFINITE_WAIT && result == 0 ) {
+    else if ( milliseconds != CPL_EE_WFE_INFINITE_WAIT && waitResult == 0 ) {
         delete[] epollEvents;
         return CPL_EE_WFE_TIME_IS_UP;
     }
@@ -454,7 +462,7 @@ static uint32_t EventExpectant::waitForEvents( std::vector<Event*>* events,
         uint32_t eventNumber = 0;
         bool breakLoop = false;
         for ( auto event : *events ) {
-            for ( i = 0; i < result; i++ ) {
+            for ( i = 0; i < waitResult; i++ ) {
                 if ( epollEvents[ i ].data.fd == event->getEventHandle() ) {
                     breakLoop = true;
                     break;
