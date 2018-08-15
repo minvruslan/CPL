@@ -86,9 +86,9 @@
 typedef int32_t CPL_PLATFORM_SOCKET;
 typedef int32_t CPL_PLATFORM_EVENT;
 
-// ==========================================
-// ========== Classes declarations ==========
-// ==========================================
+// =================================================
+// ========== Class IpAddress declaration ==========
+// =================================================
 
 class IpAddress {
 public:
@@ -104,6 +104,10 @@ private:
     uint16_t portNumber_;
 };
 
+// ==================================================
+// ========== Class SocketBase declaration ==========
+// ==================================================
+
 class SocketBase {
 public:
     SocketBase();
@@ -111,10 +115,15 @@ public:
     virtual bool open( const uint16_t& portNumber, const bool& nonBlockingModeFlag ) = 0;
     virtual bool isOpen() const = 0;
     virtual void close() = 0;
+
     CPL_PLATFORM_SOCKET getSocketHandle() const;
 protected:
     CPL_PLATFORM_SOCKET socketHandle_;
 };
+
+// =================================================
+// ========== Class UdpSocket declaration ==========
+// =================================================
 
 class UdpSocket : public SocketBase {
 public:
@@ -125,6 +134,10 @@ public:
     int32_t receiveFrom( uint8_t* bufPtr, uint16_t bufSize, IpAddress& ipAddress );
     int32_t sendTo( uint8_t* bufPtr, uint16_t bufSize, IpAddress& ipAddress );
 };
+
+// =============================================
+// ========== Class Event declaration ==========
+// =============================================
 
 class Event {
 public:
@@ -141,11 +154,19 @@ private:
     bool signaled_;
 };
 
+// ======================================================
+// ========== Class EventExpectant declaration ==========
+// ======================================================
+
 class EventExpectant {
 public:
     static uint32_t waitForEvent( Event* event, uint32_t milliseconds = 0 );
     static uint32_t waitForEvents( std::vector<Event*>* events, bool waitAll, uint32_t milliseconds = 0 );
 };
+
+// ==================================================
+// ========== Class EventQueue declaration ==========
+// ==================================================
 
 template<typename T>
 class EventQueue {
@@ -165,9 +186,9 @@ private:
     Event* newElementEvent_;
 };
 
-// =========================================
-// ========== Classes definitions ==========
-// =========================================
+// ================================================
+// ========== Class IpAddress definition ==========
+// ================================================
 
 IpAddress::IpAddress() {
     portNumber_ = 0;
@@ -203,6 +224,10 @@ inline uint16_t IpAddress::getPortNumber() const {
     return portNumber_;
 }
 
+// =================================================
+// ========== Class SocketBase definition ==========
+// =================================================
+
 SocketBase::SocketBase() {
     socketHandle_ = CPL_INVALID_SOCKET_HANDLE;
 }
@@ -210,6 +235,10 @@ SocketBase::SocketBase() {
 CPL_PLATFORM_SOCKET SocketBase::getSocketHandle() const {
     return socketHandle_;
 }
+
+// ================================================
+// ========== Class UdpSocket definition ==========
+// ================================================
 
 bool UdpSocket::open( const uint16_t& portNumber, const bool& nonBlockingModeFlag ) {
     socketHandle_ = ::socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP );
@@ -258,18 +287,18 @@ int32_t UdpSocket::receiveFrom( uint8_t* bufPtr, uint16_t bufSize, IpAddress& ip
         return CPL_UDP_SOCKET_ERROR_INVALID_BUFFER;
     }
 
-    sockaddr_in senderAddress;
-    socklen_t senderAddressSize = sizeof( senderAddress );
+    sockaddr_in senderIpAddress;
+    socklen_t senderIpAddressSize = sizeof( senderIpAddress );
 
     ssize_t receivedBytes = recvfrom(socketHandle_,
                                      reinterpret_cast<char*>( bufPtr ),
                                      bufSize,
                                      0,
-                                     ( sockaddr* )&senderAddress,
-                                     &senderAddressSize);
+                                     ( sockaddr* )&senderIpAddress,
+                                     &senderIpAddressSize);
 
     if ( receivedBytes >= 0 ) {
-        return receivedBytes;
+        return ( int32_t )receivedBytes;
     }
     else {
         return CPL_UDP_SOCKET_ERROR_RECVFROM_FAILED;
@@ -285,25 +314,29 @@ int32_t UdpSocket::sendTo( uint8_t* bufPtr, uint16_t bufSize, IpAddress& ipAddre
         return CPL_UDP_SOCKET_ERROR_INVALID_BUFFER;
     }
 
-    sockaddr_in destinationAddress;
-    destinationAddress.sin_family = AF_INET;
-    inet_aton( ipAddress.getIp().data(), &destinationAddress.sin_addr );
-    destinationAddress.sin_port = htons( ipAddress.getPortNumber() );
+    sockaddr_in destinationIpAddress;
+    destinationIpAddress.sin_family = AF_INET;
+    inet_aton( ipAddress.getIp().data(), &destinationIpAddress.sin_addr );
+    destinationIpAddress.sin_port = htons( ipAddress.getPortNumber() );
 
     ssize_t bytesSend = sendto( socketHandle_,
-                                reinterpret_cast<const char*>(bufPtr),
+                                reinterpret_cast<const char*>( bufPtr ),
                                 bufSize,
                                 0,
-                                ( sockaddr* )&destinationAddress,
+                                ( sockaddr* )&destinationIpAddress,
                                 sizeof( sockaddr_in ) );
 
     if ( bytesSend >= 0 ) {
-        return bytesSend;
+        return ( int32_t )bytesSend;
     }
     else {
         return CPL_UDP_SOCKET_ERROR_SENDTO_FAILED;
     }
 }
+
+// ============================================
+// ========== Class Event definition ==========
+// ============================================
 
 Event::Event() :
     signaled_( false ),
@@ -322,7 +355,7 @@ CPL_PLATFORM_EVENT Event::getEventHandle() const {
 
 bool Event::initializeEvent() {
     eventHandle_ = eventfd( 0, EFD_NONBLOCK );
-    return eventHandle_ != CPL_INVALID_EVENT_HANDLE;
+    return ( eventHandle_ != CPL_INVALID_EVENT_HANDLE );
 }
 
 bool Event::initializeEvent( UdpSocket& udpSocket ) {
@@ -344,12 +377,12 @@ bool Event::setEvent() {
     signaled_ = true;
 
     int32_t result =  eventfd_write( eventHandle_, 1 );
-    if ( result == -1 ) {
-        signaled_ = false;
-        return false;
+    if ( result != -1 ) {
+        return true;
     }
     else {
-        return true;
+        signaled_ = false;
+        return false;
     }
 }
 
@@ -369,8 +402,13 @@ bool Event::resetEvent() {
     }
 
     eventfd_t eventfdt;
-    return eventfd_read( eventHandle_, &eventfdt ) != -1;
+
+    return ( eventfd_read( eventHandle_, &eventfdt ) != -1 );
 }
+
+// =====================================================
+// ========== Class EventExpectant definition ==========
+// =====================================================
 
 static uint32_t EventExpectant::waitForEvent( Event* event, uint32_t milliseconds = 0 ) {
     if ( event->getEventHandle() == CPL_INVALID_EVENT_HANDLE ) {
@@ -401,13 +439,17 @@ static uint32_t EventExpectant::waitForEvent( Event* event, uint32_t millisecond
 
     close( epollFD );
 
-    if ( waitResult == -1 ) {
-        return CPL_EE_WFE_ERROR_FAILED;
+    if ( waitResult != -1 ) {
+        return 0;
     }
     else {
-        return 1;
+        return CPL_EE_WFE_ERROR_FAILED;
     }
 }
+
+// =====================================================
+// ========== Class EventExpectant definition ==========
+// =====================================================
 
 static uint32_t EventExpectant::waitForEvents( std::vector<Event*>* events,
                                                bool waitAll,
@@ -439,12 +481,12 @@ static uint32_t EventExpectant::waitForEvents( std::vector<Event*>* events,
     epoll_event* epollEvents = new epoll_event[ events->size() ];
 
     int32_t waitResult = CPL_EE_WFE_ERROR_FAILED;
-    
+
     if( milliseconds == CPL_EE_WFE_INFINITE_WAIT ) {
-        waitResult = epoll_wait( epollFD, epollEvents, events->size(), -1 );
+        waitResult = epoll_wait( epollFD, epollEvents, ( int32_t )events->size(), -1 );
     }
     else {
-        waitResult = epoll_wait( epollFD, epollEvents, events->size(), milliseconds );
+        waitResult = epoll_wait( epollFD, epollEvents, ( int32_t )events->size(), milliseconds );
     }
 
     close( epollFD );
@@ -453,33 +495,36 @@ static uint32_t EventExpectant::waitForEvents( std::vector<Event*>* events,
         delete[] epollEvents;
         return CPL_EE_WFE_ERROR_FAILED;
     }
-    else if ( milliseconds != CPL_EE_WFE_INFINITE_WAIT && waitResult == 0 ) {
+
+    if ( milliseconds != CPL_EE_WFE_INFINITE_WAIT && waitResult == 0 ) {
         delete[] epollEvents;
         return CPL_EE_WFE_TIME_IS_UP;
     }
-    else {
-        uint32_t i = 0;
-        uint32_t eventNumber = 0;
-        bool breakLoop = false;
-        for ( auto event : *events ) {
-            for ( i = 0; i < waitResult; i++ ) {
-                if ( epollEvents[ i ].data.fd == event->getEventHandle() ) {
-                    breakLoop = true;
-                    break;
-                }
-            }
 
-            if ( breakLoop ) {
+    // I hate this code block.
+    uint32_t i = 0;
+    uint32_t signaledEventNumber = 0;
+    bool foundedSignaledEvent = false;
+
+    for ( auto event : *events ) {
+        for ( i = 0; i < waitResult; i++ ) {
+            if ( epollEvents[ i ].data.fd == event->getEventHandle() ) {
+                foundedSignaledEvent = true;
                 break;
-            }
-            else {
-                eventNumber++;
             }
         }
 
-        delete[] epollEvents;
-        return eventNumber;
+        if ( foundedSignaledEvent ) {
+            break;
+        }
+        else {
+            signaledEventNumber++;
+        }
     }
+
+    delete[] epollEvents;
+
+    return signaledEventNumber;
 }
 
 template<typename T>
@@ -541,7 +586,7 @@ std::shared_ptr<T> EventQueue::tryPop() {
 
 template<typename T>
 bool EventQueue::isEmpty() const {
-    return !newElementEvent_->isSignaled();
+    return ( !newElementEvent_->isSignaled() );
 }
 
 template<typename T>
