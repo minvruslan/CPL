@@ -527,6 +527,10 @@ static uint32_t EventExpectant::waitForEvents( std::vector<Event*>* events,
     return signaledEventNumber;
 }
 
+// =================================================
+// ========== Class EventQueue definition ==========
+// =================================================
+
 template<typename T>
 EventQueue::EventQueue() {
     newElementEvent_ = new Event;
