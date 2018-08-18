@@ -19,6 +19,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+// Socket event types.
+// Event + socket.
+// TcpSocket.
+
 #ifndef CPL_HPP
 #define CPL_HPP
 
@@ -63,6 +67,7 @@
 #define CPL_EE_WFE_ERROR_INVALID_EVENT_HANDLE ( 0xFFFE )
 #define CPL_EE_WFE_ERROR_EVENT_MAX_LIMIT      ( 0xFFFD )
 #define CPL_EE_WFE_ERROR_FAILED               ( 0xFFFC )
+#define CPL_EE_WFE_ALL_EVENTS_SIGNALED        ( 0xFFFB )
 
 // ==============================
 // ========== Typedefs ==========
@@ -496,30 +501,49 @@ inline uint32_t EventExpectant::waitForEvents( std::vector<Event*>* events,
         return CPL_EE_WFE_TIME_IS_UP;
     }
 
-    // I hate this code block.
-    uint32_t k = 0;
-    uint32_t signaledEventNumber = 0;
-    bool foundedSignaledEvent = false;
+    if ( waitResult == 0 ) {
+        delete[] epollEvents;
+        return CPL_EE_WFE_ERROR_FAILED;
+    }
 
-    for ( uint16_t i = 0; i < events->size(); i++ ) {
-        for ( k = 0; k < waitResult; k++ ) {
-            if ( epollEvents[ k ].data.fd == events->at( i )->getEventHandle() ) {
-                foundedSignaledEvent = true;
-                break;
+    uint32_t signaledEventNumber = 0;
+    std::vector<Event*> remainingEvents;
+
+    if ( waitAll ) {
+        if ( waitResult == events->size() ) {
+            delete[] epollEvents;
+            return CPL_EE_WFE_ALL_EVENTS_SIGNALED;
+        }
+
+        for ( uint16_t i = 0; i < events->size(); i++ ) {
+            for ( uint16_t j = 0; j < waitResult; j++ ) {
+                if ( epollEvents[ j ].data.fd == events->at( i )->getEventHandle() ) {
+                    remainingEvents.push_back( events->at( i ) );
+                }
             }
         }
 
-        if ( foundedSignaledEvent ) {
-            break;
-        }
-        else {
-            signaledEventNumber++;
+        delete[] epollEvents;
+
+        return  ( waitForEvents( &remainingEvents, waitAll, milliseconds ) );
+    }
+    else {
+        for ( uint16_t i = 0; i < events->size(); i++ ) {
+            for ( uint16_t j = 0; j < waitResult; j++ ) {
+                if ( epollEvents[ j ].data.fd == events->at( i )->getEventHandle() ) {
+                    delete[] epollEvents;
+                    return signaledEventNumber;
+                }
+                else {
+                    signaledEventNumber++;
+                }
+            }
         }
     }
 
     delete[] epollEvents;
 
-    return signaledEventNumber;
+    return CPL_EE_WFE_ERROR_FAILED;
 }
 
 template<typename T>
@@ -562,7 +586,7 @@ inline bool EventQueue<T>::tryPop( T& value ) {
 
 template<typename T>
 inline std::shared_ptr<T> EventQueue<T>::tryPop() {
-    std::shared_ptr<T> result = nullptr;
+    std::shared_ptr<T> result = NULL;
 
     if ( !newElementEvent_->isSignaled() ) {
         return result;
