@@ -28,43 +28,35 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
+#include <queue>
 #include <memory>
 #include <mutex>
-#include <queue>
-#include <iostream>
-#include <vector>
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
-
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <sys/eventfd.h>
 #include <sys/epoll.h>
-#include <vector>
 
 // =============================
 // ========== Defines ==========
 // =============================
 
-// Values for SocketBase, UdpSocket classes.
 #define CPL_INVALID_SOCKET_HANDLE        ( 0 )
 
-// Values for UdpSocket class.
 #define CPL_UDP_MESSAGE_MAX_SIZE       ( 65507 )
 
-// Errors for UdpSocket class.
 #define CPL_UDP_SOCKET_ERROR_INVALID_BUFFER  ( -1 )
 #define CPL_UDP_SOCKET_ERROR_INVALID_SOCKET  ( -2 )
 #define CPL_UDP_SOCKET_ERROR_RECVFROM_FAILED ( -3 )
 #define CPL_UDP_SOCKET_ERROR_SENDTO_FAILED   ( -4 )
 
-// Values for Event class.
 #define CPL_INVALID_EVENT_HANDLE  ( 0 )
 
-// Values for EventExpectant class.
 #define CPL_EE_WFE_MAX_EVENTS                   ( 64 )
 #define CPL_EE_WFE_INFINITE_WAIT              ( 0xFFFF )
 #define CPL_EE_WFE_TIME_IS_UP                 ( 0xFFFF )
@@ -319,7 +311,7 @@ inline int32_t UdpSocket::sendTo( uint8_t* bufPtr, uint16_t bufSize, IpAddress& 
     destinationIpAddress.sin_port = htons( ipAddress.getPortNumber() );
 
     ssize_t bytesSend = sendto( socketHandle_,
-                                reinterpret_cast<const char*>(bufPtr),
+                                reinterpret_cast<const char*>( bufPtr ),
                                 bufSize,
                                 0,
                                 ( sockaddr* )&destinationIpAddress,
@@ -527,7 +519,7 @@ inline uint32_t EventExpectant::waitForEvents( std::vector<Event*>* events,
 
     delete[] epollEvents;
 
-    return 0;
+    return signaledEventNumber;
 }
 
 template<typename T>
@@ -570,7 +562,7 @@ inline bool EventQueue<T>::tryPop( T& value ) {
 
 template<typename T>
 inline std::shared_ptr<T> EventQueue<T>::tryPop() {
-    std::shared_ptr<T> result = NULL;
+    std::shared_ptr<T> result = nullptr;
 
     if ( !newElementEvent_->isSignaled() ) {
         return result;
@@ -598,7 +590,7 @@ inline bool EventQueue<T>::isEmpty() const {
 template<typename T>
 inline uint64_t EventQueue<T>::size() const {
     std::lock_guard<std::mutex> lock( queueMutex_ );
-    return queue_.size();
+    return ( queue_.size() );
 }
 
 template<typename T>
