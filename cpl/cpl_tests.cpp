@@ -21,7 +21,21 @@
 
 #include <iostream>
 
+#include "cpl.hpp"
+
 int main() {
-    std::cout << "Hello, World!" << std::endl;
+    UdpSocket udpSocket;
+
+    if ( !udpSocket.open( 50000, true ) ) {
+        std::cout << "Failed to open socket on port 50000." << std::endl;
+    }
+    else {
+        std::cout << "Socket successfully opened on port 50000." << std::endl;
+    }
+
+    udpSocket.close();
+
+    getchar();
+
     return 0;
 }
