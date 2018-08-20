@@ -19,176 +19,17 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// Socket event types.
-// Event + socket.
-// TcpSocket.
-
-#ifndef CPL_HPP
-#define CPL_HPP
-
-// ==============================
-// ========== Includes ==========
-// ==============================
-
-#include <cstdint>
-#include <string>
-#include <vector>
-#include <queue>
-#include <memory>
-#include <mutex>
-
-#include <fcntl.h>
-#include <unistd.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/eventfd.h>
-#include <sys/epoll.h>
-
-// =============================
-// ========== Defines ==========
-// =============================
-
-#define CPL_INVALID_SOCKET_HANDLE        ( 0 )
-
-#define CPL_UDP_MESSAGE_MAX_SIZE       ( 65507 )
-
-#define CPL_UDP_SOCKET_ERROR_INVALID_BUFFER  ( -1 )
-#define CPL_UDP_SOCKET_ERROR_INVALID_SOCKET  ( -2 )
-#define CPL_UDP_SOCKET_ERROR_RECVFROM_FAILED ( -3 )
-#define CPL_UDP_SOCKET_ERROR_SENDTO_FAILED   ( -4 )
-
-#define CPL_INVALID_EVENT_HANDLE  ( 0 )
-
-#define CPL_EE_WFE_MAX_EVENTS                   ( 64 )
-#define CPL_EE_WFE_INFINITE_WAIT              ( 0xFFFF )
-#define CPL_EE_WFE_TIME_IS_UP                 ( 0xFFFF )
-#define CPL_EE_WFE_ERROR_INVALID_EVENT_HANDLE ( 0xFFFE )
-#define CPL_EE_WFE_ERROR_EVENT_MAX_LIMIT      ( 0xFFFD )
-#define CPL_EE_WFE_ERROR_FAILED               ( 0xFFFC )
-#define CPL_EE_WFE_ALL_EVENTS_SIGNALED        ( 0xFFFB )
-
-// ==============================
-// ========== Typedefs ==========
-// ==============================
-
-typedef int32_t CPL_PLATFORM_SOCKET;
-typedef int32_t CPL_PLATFORM_EVENT;
-
-// =================================================
-// ========== Class IpAddress declaration ==========
-// =================================================
-
-class IpAddress {
-public:
-    IpAddress();
-
-    bool setIp( const std::string& ip );
-    bool setPortNumber( const uint16_t& portNumber );
-
-    std::string getIp() const;
-    uint16_t getPortNumber() const;
-private:
-    std::string ip_;
-    uint16_t portNumber_;
-};
-
-// ==================================================
-// ========== Class SocketBase declaration ==========
-// ==================================================
-
-class SocketBase {
-public:
-    SocketBase();
-
-    virtual bool open( const uint16_t& portNumber, const bool& nonBlockingModeFlag ) = 0;
-    virtual bool isOpen() const = 0;
-    virtual void close() = 0;
-
-    CPL_PLATFORM_SOCKET getSocketHandle() const;
-protected:
-    CPL_PLATFORM_SOCKET socketHandle_;
-};
-
-// =================================================
-// ========== Class UdpSocket declaration ==========
-// =================================================
-
-class UdpSocket : public SocketBase {
-public:
-    bool open( const uint16_t& portNumber, const bool& nonBlockingModeFlag );
-    bool isOpen() const;
-    void close();
-
-    int32_t receiveFrom( uint8_t* bufPtr, uint16_t bufSize, IpAddress& ipAddress );
-    int32_t sendTo( uint8_t* bufPtr, uint16_t bufSize, IpAddress& ipAddress );
-};
-
-// =============================================
-// ========== Class Event declaration ==========
-// =============================================
-
-class Event {
-public:
-    Event();
-    ~Event();
-
-    CPL_PLATFORM_EVENT getEventHandle() const;
-
-    bool initializeEvent();
-    bool initializeEvent( UdpSocket& udpSocket );
-    bool setEvent();
-    bool isSignaled() const;
-    bool resetEvent();
-private:
-    CPL_PLATFORM_EVENT eventHandle_;
-    bool signaled_;
-};
-
-// ======================================================
-// ========== Class EventExpectant declaration ==========
-// ======================================================
-
-class EventExpectant {
-public:
-    static uint32_t waitForEvent( Event* event, uint32_t milliseconds = 0 );
-    static uint32_t waitForEvents( std::vector<Event*>* events, bool waitAll, uint32_t milliseconds = 0 );
-};
-
-// ==================================================
-// ========== Class EventQueue declaration ==========
-// ==================================================
-
-template<typename T>
-class EventQueue {
-public:
-    EventQueue();
-    ~EventQueue();
-
-    EventQueue& operator=( const EventQueue& ) = delete;
-
-    void push( T value );
-    bool tryPop( T& value );
-    std::shared_ptr<T> tryPop();
-    bool isEmpty() const;
-    uint64_t size() const;
-    Event* getEventHandle();
-private:
-    mutable std::mutex queueMutex_;
-    std::queue<T> queue_;
-    Event* newElementEvent_;
-};
+#include "cpl.hpp"
 
 // ================================================
 // ========== Class IpAddress definition ==========
 // ================================================
 
-inline IpAddress::IpAddress() :
+IpAddress::IpAddress() :
     portNumber_( 0 )
 {}
 
-inline bool IpAddress::setIp( const std::string& ip ) {
+bool IpAddress::setIp( const std::string& ip ) {
     sockaddr_in sa;
 
     int32_t result =  inet_pton( AF_INET, ip.data(), &( sa.sin_addr ) );
@@ -202,7 +43,7 @@ inline bool IpAddress::setIp( const std::string& ip ) {
     }
 }
 
-inline bool IpAddress::setPortNumber( const uint16_t& portNumber ) {
+bool IpAddress::setPortNumber( const uint16_t& portNumber ) {
     if ( 49152 <= portNumber && portNumber <= 65535 ) {
         portNumber_ = portNumber;
         return true;
@@ -212,11 +53,11 @@ inline bool IpAddress::setPortNumber( const uint16_t& portNumber ) {
     }
 }
 
-inline std::string IpAddress::getIp() const {
+std::string IpAddress::getIp() const {
     return ip_;
 }
 
-inline uint16_t IpAddress::getPortNumber() const {
+uint16_t IpAddress::getPortNumber() const {
     return portNumber_;
 }
 
@@ -224,11 +65,11 @@ inline uint16_t IpAddress::getPortNumber() const {
 // ========== Class SocketBase definition ==========
 // =================================================
 
-inline SocketBase::SocketBase() :
+SocketBase::SocketBase() :
     socketHandle_( CPL_INVALID_SOCKET_HANDLE )
 {}
 
-inline CPL_PLATFORM_SOCKET SocketBase::getSocketHandle() const {
+CPL_PLATFORM_SOCKET SocketBase::getSocketHandle() const {
     return socketHandle_;
 }
 
@@ -236,7 +77,7 @@ inline CPL_PLATFORM_SOCKET SocketBase::getSocketHandle() const {
 // ========== Class UdpSocket definition ==========
 // ================================================
 
-inline bool UdpSocket::open( const uint16_t& portNumber, const bool& nonBlockingModeFlag ) {
+bool UdpSocket::open( const uint16_t& portNumber, const bool& nonBlockingModeFlag ) {
     socketHandle_ = ::socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP );
 
     if ( socketHandle_ <= 0 ) {
@@ -263,18 +104,18 @@ inline bool UdpSocket::open( const uint16_t& portNumber, const bool& nonBlocking
     return true;
 }
 
-inline bool UdpSocket::isOpen() const {
+bool UdpSocket::isOpen() const {
     return ( socketHandle_ != CPL_INVALID_SOCKET_HANDLE );
 }
 
-inline void UdpSocket::close() {
+void UdpSocket::close() {
     if ( socketHandle_ != CPL_INVALID_SOCKET_HANDLE ) {
         ::close( socketHandle_ );
         socketHandle_ = CPL_INVALID_SOCKET_HANDLE;
     }
 }
 
-inline int32_t UdpSocket::receiveFrom( uint8_t* bufPtr, uint16_t bufSize, IpAddress& ipAddress ) {
+int32_t UdpSocket::receiveFrom( uint8_t* bufPtr, uint16_t bufSize, IpAddress& ipAddress ) {
     if ( socketHandle_ == CPL_INVALID_SOCKET_HANDLE ) {
         return CPL_UDP_SOCKET_ERROR_INVALID_SOCKET;
     }
@@ -301,7 +142,7 @@ inline int32_t UdpSocket::receiveFrom( uint8_t* bufPtr, uint16_t bufSize, IpAddr
     }
 }
 
-inline int32_t UdpSocket::sendTo( uint8_t* bufPtr, uint16_t bufSize, IpAddress& ipAddress ) {
+int32_t UdpSocket::sendTo( uint8_t* bufPtr, uint16_t bufSize, IpAddress& ipAddress ) {
     if ( socketHandle_ == CPL_INVALID_SOCKET_HANDLE ) {
         return CPL_UDP_SOCKET_ERROR_INVALID_SOCKET;
     }
@@ -334,27 +175,27 @@ inline int32_t UdpSocket::sendTo( uint8_t* bufPtr, uint16_t bufSize, IpAddress& 
 // ========== Class Event definition ==========
 // ============================================
 
-inline Event::Event() :
+Event::Event() :
     signaled_( false ),
     eventHandle_( CPL_INVALID_EVENT_HANDLE )
 {}
 
-inline Event::~Event() {
+Event::~Event() {
     if ( eventHandle_ != CPL_INVALID_EVENT_HANDLE ) {
         close( eventHandle_ );
     }
 }
 
-inline CPL_PLATFORM_EVENT Event::getEventHandle() const {
+CPL_PLATFORM_EVENT Event::getEventHandle() const {
     return eventHandle_;
 }
 
-inline bool Event::initializeEvent() {
+bool Event::initializeEvent() {
     eventHandle_ = eventfd( 0, EFD_NONBLOCK );
     return ( eventHandle_ != CPL_INVALID_EVENT_HANDLE );
 }
 
-inline bool Event::initializeEvent( UdpSocket& udpSocket ) {
+bool Event::initializeEvent( UdpSocket& udpSocket ) {
     if( !udpSocket.isOpen() ) {
         return false;
     }
@@ -364,7 +205,7 @@ inline bool Event::initializeEvent( UdpSocket& udpSocket ) {
     return true;
 }
 
-inline bool Event::setEvent() {
+bool Event::setEvent() {
     if ( eventHandle_ == CPL_INVALID_EVENT_HANDLE ) {
         signaled_ = false;
         return false;
@@ -383,11 +224,11 @@ inline bool Event::setEvent() {
     }
 }
 
-inline bool Event::isSignaled() const {
+bool Event::isSignaled() const {
     return signaled_;
 }
 
-inline bool Event::resetEvent() {
+bool Event::resetEvent() {
     if ( !signaled_ ) {
         return true;
     }
@@ -407,7 +248,7 @@ inline bool Event::resetEvent() {
 // ========== Class EventExpectant definition ==========
 // =====================================================
 
-inline uint32_t EventExpectant::waitForEvent( Event* event, uint32_t milliseconds ) {
+uint32_t EventExpectant::waitForEvent( Event* event, uint32_t milliseconds ) {
     if ( event->getEventHandle() == CPL_INVALID_EVENT_HANDLE ) {
         return CPL_EE_WFE_ERROR_INVALID_EVENT_HANDLE;
     }
@@ -447,13 +288,9 @@ inline uint32_t EventExpectant::waitForEvent( Event* event, uint32_t millisecond
     }
 }
 
-// =====================================================
-// ========== Class EventExpectant definition ==========
-// =====================================================
-
-inline uint32_t EventExpectant::waitForEvents( std::vector<Event*>* events,
-                                               bool waitAll,
-                                               uint32_t milliseconds )
+uint32_t EventExpectant::waitForEvents( std::vector<Event*>* events,
+                                        bool waitAll,
+                                        uint32_t milliseconds )
 {
     if ( events->size() > CPL_EE_WFE_MAX_EVENTS ) {
         return CPL_EE_WFE_ERROR_EVENT_MAX_LIMIT;
@@ -545,81 +382,3 @@ inline uint32_t EventExpectant::waitForEvents( std::vector<Event*>* events,
 
     return CPL_EE_WFE_ERROR_FAILED;
 }
-
-template<typename T>
-inline EventQueue<T>::EventQueue() {
-    newElementEvent_ = new Event;
-    newElementEvent_->initializeEvent();
-}
-
-template<typename T>
-inline EventQueue<T>::~EventQueue() {
-    delete newElementEvent_; // How to check? Handle may be anywhere.
-}
-
-template<typename T>
-inline void EventQueue<T>::push( T value ) {
-    std::lock_guard<std::mutex> lock( queueMutex_ );
-    queue_.push( value );
-    if ( !newElementEvent_->isSignaled() ) {
-        newElementEvent_->setEvent();
-    }
-}
-
-template<typename T>
-inline bool EventQueue<T>::tryPop( T& value ) {
-    if ( !newElementEvent_->isSignaled() ) {
-        return false;
-    }
-    else {
-        std::lock_guard<std::mutex> lock( queueMutex_ );
-        if ( !queue_.empty() ) {
-            value = queue_.front();
-            queue_.pop();
-        }
-        if ( queue_.empty() ) {
-            newElementEvent_->resetEvent();
-        }
-        return true;
-    }
-}
-
-template<typename T>
-inline std::shared_ptr<T> EventQueue<T>::tryPop() {
-    std::shared_ptr<T> result = NULL;
-
-    if ( !newElementEvent_->isSignaled() ) {
-        return result;
-    }
-    else {
-        std::lock_guard<std::mutex> lock( queueMutex_ );
-        if ( !queue_.empty() ) {
-            result = std::make_shared<T>( queue_.front() );
-            queue_.pop();
-
-            if ( queue_.empty() ) {
-                newElementEvent_->resetEvent();
-            }
-
-            return result;
-        }
-    }
-}
-
-template<typename T>
-inline bool EventQueue<T>::isEmpty() const {
-    return ( !newElementEvent_->isSignaled() );
-}
-
-template<typename T>
-inline uint64_t EventQueue<T>::size() const {
-    std::lock_guard<std::mutex> lock( queueMutex_ );
-    return ( queue_.size() );
-}
-
-template<typename T>
-inline Event* EventQueue<T>::getEventHandle() {
-    return newElementEvent_;
-}
-
-#endif // CPL_HPP
