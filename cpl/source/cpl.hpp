@@ -55,6 +55,12 @@
 #define CPL_UDP_SOCKET_ERROR_RECVFROM_FAILED ( -3 )
 #define CPL_UDP_SOCKET_ERROR_SENDTO_FAILED   ( -4 )
 
+#define CPL_TCP_SOCKET_SEND_OK               (  0 )
+#define CPL_TCP_SOCKET_ERROR_INVALID_BUFFER  ( -1 )
+#define CPL_TCP_SOCKET_ERROR_INVALID_SOCKET  ( -2 )
+#define CPL_TCP_SOCKET_ERROR_RECV_FAILED     ( -3 )
+#define CPL_TCP_SOCKET_ERROR_SEND_FAILED     ( -4 )
+
 #define CPL_INVALID_EVENT_HANDLE ( 0 )
 
 #define CPL_EE_WFE_MAX_EVENTS                   ( 64 )
@@ -146,7 +152,7 @@ public:
 
 class TcpServerExchangeSocket : public SocketBase {
 public:
-    TcpServerExchangeSocket();
+    explicit TcpServerExchangeSocket( CPL_PLATFORM_SOCKET socketHandle );
 
     int32_t receive( uint8_t* bufPtr, uint16_t bufSize );
     int32_t send( uint8_t* bufPtr, uint16_t bufSize);
@@ -201,12 +207,15 @@ public:
     bool setEvent();
     bool isSignaled() const;
     bool resetEvent();
+
+    bool isSocketEvent() const;
+    CPL_SOCKET_EVENT_TYPES getSocketEventTypes() const;
 private:
     CPL_PLATFORM_EVENT eventHandle_;
     bool signaled_;
 
-    bool    isSocketEvent_;
-    uint8_t socketEventTypes;
+    bool isSocketEvent_;
+    CPL_SOCKET_EVENT_TYPES socketEventTypes_;
 };
 
 // ======================================================
