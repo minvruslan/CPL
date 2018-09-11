@@ -19,12 +19,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// Socket event types.
-// Event + socket.
-// TcpSocket.
-
-#ifndef _CPL_HPP_
-#define _CPL_HPP_
+#ifndef CPL_HPP
+#define CPL_HPP
 
 // ==============================
 // ========== Includes ==========
@@ -50,16 +46,16 @@
 // ========== Defines ==========
 // =============================
 
-#define CPL_INVALID_SOCKET_HANDLE        ( 0 )
+#define CPL_INVALID_SOCKET_HANDLE ( 0 )
 
-#define CPL_UDP_MESSAGE_MAX_SIZE       ( 65507 )
+#define CPL_UDP_MESSAGE_MAX_SIZE ( 65507 )
 
 #define CPL_UDP_SOCKET_ERROR_INVALID_BUFFER  ( -1 )
 #define CPL_UDP_SOCKET_ERROR_INVALID_SOCKET  ( -2 )
 #define CPL_UDP_SOCKET_ERROR_RECVFROM_FAILED ( -3 )
 #define CPL_UDP_SOCKET_ERROR_SENDTO_FAILED   ( -4 )
 
-#define CPL_INVALID_EVENT_HANDLE  ( 0 )
+#define CPL_INVALID_EVENT_HANDLE ( 0 )
 
 #define CPL_EE_WFE_MAX_EVENTS                   ( 64 )
 #define CPL_EE_WFE_INFINITE_WAIT              ( 0xFFFF )
@@ -69,12 +65,30 @@
 #define CPL_EE_WFE_ERROR_FAILED               ( 0xFFFC )
 #define CPL_EE_WFE_ALL_EVENTS_SIGNALED        ( 0xFFFB )
 
+#define CPL_SOCKET_EVENT_TYPE_ACCEPT ( 0x01 ) // 0x01 = 0b00000001
+#define CPL_SOCKET_EVENT_TYPE_READ   ( 0x02 ) // 0x02 = 0b00000010
+#define CPL_SOCKET_EVENT_TYPE_WRITE  ( 0x04 ) // 0x04 = 0b00000100
+#define CPL_SOCKET_EVENT_TYPE_HUP    ( 0x08 ) // 0x08 = 0b00001000
+#define CPL_SOCKET_EVENT_TYPE_ERROR  ( 0x10 ) // 0x10 = 0b00010000
+
 // ==============================
 // ========== Typedefs ==========
 // ==============================
 
 typedef int32_t CPL_PLATFORM_SOCKET;
 typedef int32_t CPL_PLATFORM_EVENT;
+typedef uint8_t CPL_SOCKET_EVENT_TYPES;
+
+// ===========================
+// ========== Enums ==========
+// ===========================
+
+enum class SocketType {
+    UDP_SOCKET,
+    TCP_SERVER_LISTEN_SOCKET,
+    TCP_SERVER_EXCHANGE_SOCKET,
+    TCP_CLIENT_SOCKET
+};
 
 // =================================================
 // ========== Class IpAddress declaration ==========
@@ -99,16 +113,17 @@ private:
 // ==================================================
 
 class SocketBase {
+protected:
+    explicit SocketBase( SocketType socketType );
 public:
-    SocketBase();
-
-    virtual bool open( const uint16_t& portNumber, const bool& nonBlockingModeFlag ) = 0;
-    virtual bool isOpen() const = 0;
-    virtual void close() = 0;
+    bool isOpen() const;
+    void close();
 
     CPL_PLATFORM_SOCKET getSocketHandle() const;
+    SocketType getSocketType() const;
 protected:
     CPL_PLATFORM_SOCKET socketHandle_;
+    SocketType socketType_;
 };
 
 // =================================================
@@ -117,40 +132,51 @@ protected:
 
 class UdpSocket : public SocketBase {
 public:
+    UdpSocket();
+
     bool open( const uint16_t& portNumber, const bool& nonBlockingModeFlag );
-    bool isOpen() const;
-    void close();
 
     int32_t receiveFrom( uint8_t* bufPtr, uint16_t bufSize, IpAddress& ipAddress );
     int32_t sendTo( uint8_t* bufPtr, uint16_t bufSize, IpAddress& ipAddress );
 };
 
-// =====================================================
-// ========== Class TcpSocketBase declaration ==========
-// =====================================================
+// ===============================================================
+// ========== Class TcpServerExchangeSocket declaration ==========
+// ===============================================================
 
-//class TcpSocketBase : public SocketBase {
-//public:
-//    bool open( const uint16_t& portNumber, const bool& nonBlockingMode );
-//    bool isOpen() const;
-//    void close();
-//};
+class TcpServerExchangeSocket : public SocketBase {
+public:
+    TcpServerExchangeSocket();
 
-// ===========================================
-// ========== Class TcpServerSocket ==========
-// ===========================================
+    int32_t receive( uint8_t* bufPtr, uint16_t bufSize );
+    int32_t send( uint8_t* bufPtr, uint16_t bufSize);
+};
 
-//class TcpServerSocket : public TcpSocketBase {
-//
-//};
+// =============================================================
+// ========== Class TcpServerListenSocket declaration ==========
+// =============================================================
 
-// ===========================================
-// ========== Class TcpClientSocket ==========
-// ===========================================
+class TcpServerListenSocket : public SocketBase {
+public:
+    TcpServerListenSocket();
 
-//class TcpClientSocket : public TcpSocketBase {
-//
-//};
+    bool open( const uint16_t& portNumber, const bool& nonBlockingModeFlag, int32_t maxPendingConnections );
+    TcpServerExchangeSocket accept();
+};
+
+// =======================================================
+// ========== Class TcpClientSocket declaration ==========
+// =======================================================
+
+class TcpClientSocket : public SocketBase {
+public:
+    TcpClientSocket();
+
+    bool open( const uint16_t& portNumber, const bool& nonBlockingModeFlag );
+    bool connect( IpAddress& ipAddress );
+    int32_t receive( uint8_t* bufPtr, uint16_t bufSize );
+    int32_t send( uint8_t* bufPtr, uint16_t bufSize);
+};
 
 // =============================================
 // ========== Class Event declaration ==========
@@ -164,13 +190,23 @@ public:
     CPL_PLATFORM_EVENT getEventHandle() const;
 
     bool initializeEvent();
-    bool initializeEvent( UdpSocket& udpSocket );
+    bool initializeEvent( UdpSocket& udpSocket,
+                          CPL_SOCKET_EVENT_TYPES socketEventTypes );
+    bool initializeEvent( TcpServerListenSocket& tcpServerListenSocket,
+                          CPL_SOCKET_EVENT_TYPES socketEventTypes);
+    bool initializeEvent( TcpServerExchangeSocket& tcpServerExchangeSocket,
+                          CPL_SOCKET_EVENT_TYPES socketEventTypes );
+    bool initializeEvent( TcpClientSocket& tcpClientSocket,
+                          CPL_SOCKET_EVENT_TYPES socketEventTypes );
     bool setEvent();
     bool isSignaled() const;
     bool resetEvent();
 private:
     CPL_PLATFORM_EVENT eventHandle_;
     bool signaled_;
+
+    bool    isSocketEvent_;
+    uint8_t socketEventTypes;
 };
 
 // ======================================================
@@ -183,4 +219,4 @@ public:
     static uint32_t waitForEvents( std::vector<Event*>* events, bool waitAll, uint32_t milliseconds = 0 );
 };
 
-#endif // _CPL_HPP_
+#endif // CPL_HPP

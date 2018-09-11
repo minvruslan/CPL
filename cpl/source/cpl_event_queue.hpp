@@ -19,8 +19,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef _CPL_EVENT_QUEUE_HPP_
-#define _CPL_EVENT_QUEUE_HPP_
+#ifndef CPL_EVENT_QUEUE_HPP
+#define CPL_EVENT_QUEUE_HPP
 
 #include "cpl.hpp"
 
@@ -130,4 +130,4 @@ inline Event* EventQueue<T>::getEventHandle() {
 }
 
 
-#endif // _CPL_EVENT_QUEUE_HPP_
+#endif // CPL_EVENT_QUEUE_HPP

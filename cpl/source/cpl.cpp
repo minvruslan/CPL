@@ -44,7 +44,7 @@ bool IpAddress::setIp( const std::string& ip ) {
 }
 
 bool IpAddress::setPortNumber( const uint16_t& portNumber ) {
-    if ( 49152 <= portNumber && portNumber <= 65535 ) {
+    if ( 1024 <= portNumber && portNumber <= 65535 ) {
         portNumber_ = portNumber;
         return true;
     }
@@ -65,17 +65,36 @@ uint16_t IpAddress::getPortNumber() const {
 // ========== Class SocketBase definition ==========
 // =================================================
 
-SocketBase::SocketBase() :
+SocketBase::SocketBase( SocketType socketType ) :
+    socketType_( socketType ),
     socketHandle_( CPL_INVALID_SOCKET_HANDLE )
 {}
+
+bool SocketBase::isOpen() const {
+    return ( socketHandle_ != CPL_INVALID_SOCKET_HANDLE );
+}
+
+void SocketBase::close() {
+    if ( socketHandle_ != CPL_INVALID_SOCKET_HANDLE ) {
+        ::close( socketHandle_ );
+        socketHandle_ = CPL_INVALID_SOCKET_HANDLE;
+    }
+}
 
 CPL_PLATFORM_SOCKET SocketBase::getSocketHandle() const {
     return socketHandle_;
 }
 
+SocketType SocketBase::getSocketType() const {
+    return socketType_;
+}
+
 // ================================================
 // ========== Class UdpSocket definition ==========
 // ================================================
+
+UdpSocket::UdpSocket() : SocketBase( SocketType::UDP_SOCKET )
+{}
 
 bool UdpSocket::open( const uint16_t& portNumber, const bool& nonBlockingModeFlag ) {
     socketHandle_ = ::socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP );
@@ -102,17 +121,6 @@ bool UdpSocket::open( const uint16_t& portNumber, const bool& nonBlockingModeFla
     }
 
     return true;
-}
-
-bool UdpSocket::isOpen() const {
-    return ( socketHandle_ != CPL_INVALID_SOCKET_HANDLE );
-}
-
-void UdpSocket::close() {
-    if ( socketHandle_ != CPL_INVALID_SOCKET_HANDLE ) {
-        ::close( socketHandle_ );
-        socketHandle_ = CPL_INVALID_SOCKET_HANDLE;
-    }
 }
 
 int32_t UdpSocket::receiveFrom( uint8_t* bufPtr, uint16_t bufSize, IpAddress& ipAddress ) {
@@ -171,13 +179,94 @@ int32_t UdpSocket::sendTo( uint8_t* bufPtr, uint16_t bufSize, IpAddress& ipAddre
     }
 }
 
+// ==============================================================
+// ========== Class TcpServerExchangeSocket definition ==========
+// ==============================================================
+
+TcpServerExchangeSocket::TcpServerExchangeSocket() : SocketBase( SocketType::TCP_SERVER_EXCHANGE_SOCKET )
+{}
+
+int32_t TcpServerExchangeSocket::receive( uint8_t* bufPtr, uint16_t bufSize ) {
+
+}
+
+int32_t TcpServerExchangeSocket::send( uint8_t* bufPtr, uint16_t bufSize) {
+
+}
+
+// ============================================================
+// ========== Class TcpServerListenSocket definition ==========
+// ============================================================
+
+TcpServerListenSocket::TcpServerListenSocket() : SocketBase( SocketType::TCP_SERVER_LISTEN_SOCKET )
+{}
+
+bool TcpServerListenSocket::open( const uint16_t& portNumber,
+                                  const bool& nonBlockingModeFlag,
+                                  int32_t maxPendingConnections )
+{
+    return false;
+}
+
+TcpServerExchangeSocket TcpServerListenSocket::accept() {
+    return TcpServerExchangeSocket();
+}
+
+// ======================================================
+// ========== Class TcpClientSocket definition ==========
+// ======================================================
+
+TcpClientSocket::TcpClientSocket() : SocketBase( SocketType::TCP_CLIENT_SOCKET )
+{}
+
+bool TcpClientSocket::open( const uint16_t& portNumber, const bool& nonBlockingModeFlag ) {
+    socketHandle_ = ::socket( AF_INET, SOCK_STREAM, 0 );
+
+    if ( socketHandle_ < 0 ) {
+        return false;
+    }
+
+    sockaddr_in address;
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons( portNumber );
+
+    if ( ::bind( socketHandle_, ( const sockaddr* )&address, sizeof( sockaddr_in ) ) < 0 ) {
+        this->close();
+        return false;
+    }
+
+    if ( nonBlockingModeFlag ) {
+        if ( fcntl( socketHandle_, F_SETFL, O_NONBLOCK, 1 ) == -1 ) {
+            this->close();
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool TcpClientSocket::connect( IpAddress& ipAddress ) {
+    return false;
+}
+
+int32_t TcpClientSocket::receive( uint8_t* bufPtr, uint16_t bufSize ) {
+    return 0;
+}
+
+int32_t TcpClientSocket::send( uint8_t* bufPtr, uint16_t bufSize) {
+    return 0;
+}
+
 // ============================================
 // ========== Class Event definition ==========
 // ============================================
 
 Event::Event() :
     signaled_( false ),
-    eventHandle_( CPL_INVALID_EVENT_HANDLE )
+    eventHandle_( CPL_INVALID_EVENT_HANDLE ),
+    isSocketEvent_( false ),
+    socketEventTypes( 0x00 )
 {}
 
 Event::~Event() {
@@ -195,7 +284,7 @@ bool Event::initializeEvent() {
     return ( eventHandle_ != CPL_INVALID_EVENT_HANDLE );
 }
 
-bool Event::initializeEvent( UdpSocket& udpSocket ) {
+bool Event::initializeEvent( UdpSocket& udpSocket, CPL_SOCKET_EVENT_TYPES eventTypes ) {
     if( !udpSocket.isOpen() ) {
         return false;
     }
@@ -203,6 +292,24 @@ bool Event::initializeEvent( UdpSocket& udpSocket ) {
     eventHandle_ = udpSocket.getSocketHandle();
 
     return true;
+}
+
+bool Event::initializeEvent( TcpServerListenSocket& tcpServerListenSocket,
+                             CPL_SOCKET_EVENT_TYPES socketEventTypes)
+{
+    return false;
+}
+
+bool Event::initializeEvent( TcpServerExchangeSocket& tcpServerExchangeSocket,
+                             CPL_SOCKET_EVENT_TYPES socketEventTypes )
+{
+    return false;
+}
+
+bool Event::initializeEvent( TcpClientSocket& tcpClientSocket,
+                             CPL_SOCKET_EVENT_TYPES socketEventTypes )
+{
+    return false;
 }
 
 bool Event::setEvent() {
