@@ -24,6 +24,8 @@
 
 #include "cpl.hpp"
 
+NS_CPL_START
+
 // ==================================================
 // ========== Class EventQueue declaration ==========
 // ==================================================
@@ -49,9 +51,9 @@ private:
 };
 
 
-// =====================================================
+// =================================================
 // ========== Class EventQueue definition ==========
-// =====================================================
+// =================================================
 
 template<typename T>
 inline EventQueue<T>::EventQueue() {
@@ -129,5 +131,6 @@ inline Event* EventQueue<T>::getEventHandle() {
     return newElementEvent_;
 }
 
+NS_CPL_END
 
 #endif // CPL_EVENT_QUEUE_HPP

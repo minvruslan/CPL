@@ -21,6 +21,20 @@
 
 #include "cpl.hpp"
 
+using namespace cpl;
+
+// ==============================================
+// ========== Class CplBase definition ==========
+// ==============================================
+
+bool CplBase::initialize() {
+    return true;
+}
+
+void CplBase::close() {
+    return;;
+}
+
 // ================================================
 // ========== Class IpAddress definition ==========
 // ================================================
@@ -389,11 +403,19 @@ bool Event::initializeEvent( UdpSocket& udpSocket, CPL_SOCKET_EVENT_TYPES socket
         return false;
     }
 
-    eventHandle_ = udpSocket.getSocketHandle();
-    isSocketEvent_ = true;
-    socketEventTypes_ = socketEventTypes;
+    if ( socketEventTypes == CPL_SOCKET_EVENT_TYPE_READ  ||
+         socketEventTypes == CPL_SOCKET_EVENT_TYPE_WRITE ||
+         socketEventTypes == ( CPL_SOCKET_EVENT_TYPE_READ | CPL_SOCKET_EVENT_TYPE_WRITE ) )
+    {
+        eventHandle_ = udpSocket.getSocketHandle();
+        isSocketEvent_ = true;
+        socketEventTypes_ = socketEventTypes;
 
-    return true;
+        return true;
+    }
+    else {
+        return false;
+    }
 }
 
 bool Event::initializeEvent( TcpServerListenSocket& tcpServerListenSocket,
@@ -403,11 +425,10 @@ bool Event::initializeEvent( TcpServerListenSocket& tcpServerListenSocket,
         return false;
     }
 
-    if ( socketEventTypes == 0x19 || socketEventTypes == 0x18 || socketEventTypes == 0x10 ) {
+    if ( socketEventTypes == CPL_SOCKET_EVENT_TYPE_ACCEPT ) {
         eventHandle_ = tcpServerListenSocket.getSocketHandle();
         isSocketEvent_ = true;
         socketEventTypes_ = socketEventTypes;
-
         return true;
     }
     else {
@@ -422,8 +443,9 @@ bool Event::initializeEvent( TcpServerExchangeSocket& tcpServerExchangeSocket,
         return false;
     }
 
-    if ( socketEventTypes == 0x1E || socketEventTypes == 0x1C ||
-         socketEventTypes == 0x18 || socketEventTypes == 0x10 )
+    if ( socketEventTypes == CPL_SOCKET_EVENT_TYPE_READ  ||
+         socketEventTypes == CPL_SOCKET_EVENT_TYPE_WRITE ||
+         socketEventTypes == ( CPL_SOCKET_EVENT_TYPE_READ | CPL_SOCKET_EVENT_TYPE_WRITE ) )
     {
         eventHandle_ = tcpServerExchangeSocket.getSocketHandle();
         isSocketEvent_ = true;
@@ -443,8 +465,9 @@ bool Event::initializeEvent( TcpClientSocket& tcpClientSocket,
         return false;
     }
 
-    if ( socketEventTypes == 0x1E || socketEventTypes == 0x1C ||
-         socketEventTypes == 0x18 || socketEventTypes == 0x10 )
+    if ( socketEventTypes == CPL_SOCKET_EVENT_TYPE_READ  ||
+         socketEventTypes == CPL_SOCKET_EVENT_TYPE_WRITE ||
+         socketEventTypes == ( CPL_SOCKET_EVENT_TYPE_READ | CPL_SOCKET_EVENT_TYPE_WRITE ) )
     {
         eventHandle_ = tcpClientSocket.getSocketHandle();
         isSocketEvent_ = true;
@@ -521,7 +544,25 @@ uint32_t EventExpectant::waitForEvent( Event* event, uint32_t milliseconds ) {
 
     epoll_event epollEvent;
     epollEvent.data.fd = event->getEventHandle();
-    epollEvent.events = EPOLLIN;
+    if ( !event->isSocketEvent() ) {
+        epollEvent.events = EPOLLIN | EPOLLERR | EPOLLHUP;
+    }
+    else {
+        if ( event->getSocketEventTypes() == CPL_SOCKET_EVENT_TYPE_READ) {
+            epollEvent.events = EPOLLIN | EPOLLERR | EPOLLHUP;
+        }
+        else if ( event->getSocketEventTypes() == CPL_SOCKET_EVENT_TYPE_WRITE ) {
+            epollEvent.events = EPOLLOUT | EPOLLERR | EPOLLHUP;
+        }
+        else if ( event->getSocketEventTypes() == ( CPL_SOCKET_EVENT_TYPE_READ |
+                                                    CPL_SOCKET_EVENT_TYPE_WRITE ) )
+        {
+            epollEvent.events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP;
+        }
+        else {
+            epollEvent.events = EPOLLERR | EPOLLHUP;
+        }
+    }
     epoll_ctl( epollFD, EPOLL_CTL_ADD, event->getEventHandle(), &epollEvent );
 
     epoll_event epollEvents[ 1 ];
@@ -572,10 +613,23 @@ uint32_t EventExpectant::waitForEvents( std::vector<Event*>* events,
         epoll_event epollEvent;
         epollEvent.data.fd = events->at( i )->getEventHandle();
         if ( !events->at( i )->isSocketEvent() ) {
-            epollEvent.events = EPOLLIN;
+            epollEvent.events = EPOLLIN | EPOLLERR | EPOLLHUP;
         }
         else {
-            epollEvent.events = EPOLLIN; // FIX
+            if ( events->at( i )->getSocketEventTypes() == CPL_SOCKET_EVENT_TYPE_READ) {
+                epollEvent.events = EPOLLIN | EPOLLERR | EPOLLHUP;
+            }
+            else if ( events->at( i )->getSocketEventTypes() == CPL_SOCKET_EVENT_TYPE_WRITE ) {
+                epollEvent.events = EPOLLOUT | EPOLLERR | EPOLLHUP;
+            }
+            else if ( events->at( i )->getSocketEventTypes() == ( CPL_SOCKET_EVENT_TYPE_READ |
+                                                                  CPL_SOCKET_EVENT_TYPE_WRITE ) )
+            {
+                epollEvent.events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP;
+            }
+            else {
+                epollEvent.events = EPOLLERR | EPOLLHUP;
+            }
         }
         epoll_ctl( epollFD, EPOLL_CTL_ADD, events->at( i )->getEventHandle(), &epollEvent );
     }

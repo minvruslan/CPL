@@ -74,8 +74,9 @@
 #define CPL_SOCKET_EVENT_TYPE_ACCEPT ( 0x01 ) // 0x01 = 0b00000001
 #define CPL_SOCKET_EVENT_TYPE_READ   ( 0x02 ) // 0x02 = 0b00000010
 #define CPL_SOCKET_EVENT_TYPE_WRITE  ( 0x04 ) // 0x04 = 0b00000100
-#define CPL_SOCKET_EVENT_TYPE_HUP    ( 0x08 ) // 0x08 = 0b00001000
-#define CPL_SOCKET_EVENT_TYPE_ERROR  ( 0x10 ) // 0x10 = 0b00010000
+
+#define NS_CPL_START namespace cpl {
+#define NS_CPL_END   }
 
 // ==============================
 // ========== Typedefs ==========
@@ -84,6 +85,8 @@
 typedef int32_t CPL_PLATFORM_SOCKET;
 typedef int32_t CPL_PLATFORM_EVENT;
 typedef uint8_t CPL_SOCKET_EVENT_TYPES;
+
+NS_CPL_START
 
 // ===========================
 // ========== Enums ==========
@@ -94,6 +97,16 @@ enum class SocketType {
     TCP_SERVER_LISTEN_SOCKET,
     TCP_SERVER_EXCHANGE_SOCKET,
     TCP_CLIENT_SOCKET
+};
+
+// ===============================================
+// ========== Class CplBase declaration ==========
+// ===============================================
+
+class CplBase {
+public:
+    static bool initialize();
+    static void close();
 };
 
 // =================================================
@@ -227,5 +240,7 @@ public:
     static uint32_t waitForEvent( Event* event, uint32_t milliseconds = 0 );
     static uint32_t waitForEvents( std::vector<Event*>* events, bool waitAll, uint32_t milliseconds = 0 );
 };
+
+NS_CPL_END
 
 #endif // CPL_HPP
