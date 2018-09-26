@@ -31,9 +31,8 @@ bool CplBase::initialize() {
     return true;
 }
 
-void CplBase::close() {
-    return;;
-}
+void CplBase::shutdown()
+{}
 
 // ================================================
 // ========== Class IpAddress definition ==========
@@ -213,7 +212,6 @@ int32_t TcpServerExchangeSocket::receive( uint8_t* bufPtr, uint16_t bufSize ) {
     }
 
     ssize_t numberOfReceivedBytes = ::recv( socketHandle_, bufPtr, bufSize, 0 );
-
     if ( numberOfReceivedBytes >= 0 ) {
         return ( int32_t )numberOfReceivedBytes;
     }
@@ -267,25 +265,28 @@ bool TcpServerListenSocket::open( const uint16_t& portNumber,
         return false;
     }
 
-    if ( listen( socketHandle_ , maxPendingConnections ) <= 0 ) {
+    if ( listen( socketHandle_ , maxPendingConnections ) != 0 ) {
         this->close();
         return false;
     }
 
-    return false;
+    return true;
 }
 
-TcpServerExchangeSocket TcpServerListenSocket::accept() {
+TcpServerExchangeSocket* TcpServerListenSocket::accept() {
     sockaddr_in clientAddress;
     socklen_t clientAddressLen = sizeof( sockaddr_in );
 
     CPL_PLATFORM_SOCKET socketHandle = ::accept( socketHandle_, ( sockaddr* )&clientAddress, &clientAddressLen );
 
+    TcpServerExchangeSocket* tcpServerExchangeSocket;
+
     if ( socketHandle >= 0 ) {
-        return TcpServerExchangeSocket( socketHandle );
+        tcpServerExchangeSocket = new TcpServerExchangeSocket( socketHandle );
+        return tcpServerExchangeSocket;
     }
     else {
-        return TcpServerExchangeSocket( CPL_INVALID_SOCKET_HANDLE );
+        return nullptr;
     }
 }
 
@@ -370,161 +371,6 @@ int32_t TcpClientSocket::send( uint8_t* bufPtr, uint16_t bufSize) {
     else {
         return CPL_TCP_SOCKET_ERROR_SEND_FAILED;
     }
-}
-
-// ============================================
-// ========== Class Event definition ==========
-// ============================================
-
-Event::Event() :
-    signaled_( false ),
-    eventHandle_( CPL_INVALID_EVENT_HANDLE ),
-    isSocketEvent_( false ),
-    socketEventTypes_( 0x00 )
-{}
-
-Event::~Event() {
-    if ( eventHandle_ != CPL_INVALID_EVENT_HANDLE ) {
-        close( eventHandle_ );
-    }
-}
-
-CPL_PLATFORM_EVENT Event::getEventHandle() const {
-    return eventHandle_;
-}
-
-bool Event::initializeEvent() {
-    eventHandle_ = eventfd( 0, EFD_NONBLOCK );
-    return ( eventHandle_ != CPL_INVALID_EVENT_HANDLE );
-}
-
-bool Event::initializeEvent( UdpSocket& udpSocket, CPL_SOCKET_EVENT_TYPES socketEventTypes ) {
-    if( !udpSocket.isOpen() ) {
-        return false;
-    }
-
-    if ( socketEventTypes == CPL_SOCKET_EVENT_TYPE_READ  ||
-         socketEventTypes == CPL_SOCKET_EVENT_TYPE_WRITE ||
-         socketEventTypes == ( CPL_SOCKET_EVENT_TYPE_READ | CPL_SOCKET_EVENT_TYPE_WRITE ) )
-    {
-        eventHandle_ = udpSocket.getSocketHandle();
-        isSocketEvent_ = true;
-        socketEventTypes_ = socketEventTypes;
-
-        return true;
-    }
-    else {
-        return false;
-    }
-}
-
-bool Event::initializeEvent( TcpServerListenSocket& tcpServerListenSocket,
-                             CPL_SOCKET_EVENT_TYPES socketEventTypes)
-{
-    if( !tcpServerListenSocket.isOpen() ) {
-        return false;
-    }
-
-    if ( socketEventTypes == CPL_SOCKET_EVENT_TYPE_ACCEPT ) {
-        eventHandle_ = tcpServerListenSocket.getSocketHandle();
-        isSocketEvent_ = true;
-        socketEventTypes_ = socketEventTypes;
-        return true;
-    }
-    else {
-        return false;
-    }
-}
-
-bool Event::initializeEvent( TcpServerExchangeSocket& tcpServerExchangeSocket,
-                             CPL_SOCKET_EVENT_TYPES socketEventTypes )
-{
-    if( !tcpServerExchangeSocket.isOpen() ) {
-        return false;
-    }
-
-    if ( socketEventTypes == CPL_SOCKET_EVENT_TYPE_READ  ||
-         socketEventTypes == CPL_SOCKET_EVENT_TYPE_WRITE ||
-         socketEventTypes == ( CPL_SOCKET_EVENT_TYPE_READ | CPL_SOCKET_EVENT_TYPE_WRITE ) )
-    {
-        eventHandle_ = tcpServerExchangeSocket.getSocketHandle();
-        isSocketEvent_ = true;
-        socketEventTypes_ = socketEventTypes;
-
-        return true;
-    }
-    else {
-        return false;
-    }
-}
-
-bool Event::initializeEvent( TcpClientSocket& tcpClientSocket,
-                             CPL_SOCKET_EVENT_TYPES socketEventTypes )
-{
-    if( !tcpClientSocket.isOpen() ) {
-        return false;
-    }
-
-    if ( socketEventTypes == CPL_SOCKET_EVENT_TYPE_READ  ||
-         socketEventTypes == CPL_SOCKET_EVENT_TYPE_WRITE ||
-         socketEventTypes == ( CPL_SOCKET_EVENT_TYPE_READ | CPL_SOCKET_EVENT_TYPE_WRITE ) )
-    {
-        eventHandle_ = tcpClientSocket.getSocketHandle();
-        isSocketEvent_ = true;
-        socketEventTypes_ = socketEventTypes;
-
-        return true;
-    }
-    else {
-        return false;
-    }
-}
-
-bool Event::setEvent() {
-    if ( eventHandle_ == CPL_INVALID_EVENT_HANDLE ) {
-        signaled_ = false;
-        return false;
-    }
-
-    signaled_ = true;
-
-    int32_t result =  eventfd_write( eventHandle_, 1 );
-
-    if ( result != -1 ) {
-        return true;
-    }
-    else {
-        signaled_ = false;
-        return false;
-    }
-}
-
-bool Event::isSignaled() const {
-    return signaled_;
-}
-
-bool Event::resetEvent() {
-    if ( !signaled_ ) {
-        return true;
-    }
-
-    signaled_ = false;
-
-    if ( eventHandle_ == CPL_INVALID_EVENT_HANDLE ) {
-        return false;
-    }
-
-    eventfd_t eventfdt;
-
-    return ( eventfd_read( eventHandle_, &eventfdt ) != -1 );
-}
-
-bool Event::isSocketEvent() const {
-    return isSocketEvent_;
-}
-
-CPL_SOCKET_EVENT_TYPES Event::getSocketEventTypes() const {
-    return socketEventTypes_;
 }
 
 // =====================================================
@@ -612,6 +458,7 @@ uint32_t EventExpectant::waitForEvents( std::vector<Event*>* events,
     for ( uint16_t i = 0; i < events->size(); i++ ) {
         epoll_event epollEvent;
         epollEvent.data.fd = events->at( i )->getEventHandle();
+
         if ( !events->at( i )->isSocketEvent() ) {
             epollEvent.events = EPOLLIN | EPOLLERR | EPOLLHUP;
         }
@@ -631,6 +478,7 @@ uint32_t EventExpectant::waitForEvents( std::vector<Event*>* events,
                 epollEvent.events = EPOLLERR | EPOLLHUP;
             }
         }
+
         epoll_ctl( epollFD, EPOLL_CTL_ADD, events->at( i )->getEventHandle(), &epollEvent );
     }
 
@@ -700,4 +548,206 @@ uint32_t EventExpectant::waitForEvents( std::vector<Event*>* events,
     delete[] epollEvents;
 
     return CPL_EE_WFE_ERROR_FAILED;
+}
+
+// ============================================
+// ========== Class Event definition ==========
+// ============================================
+
+Event::Event() :
+        signaled_( false ),
+        eventHandle_( CPL_INVALID_EVENT_HANDLE ),
+        isSocketEvent_( false ),
+        socketEventTypes_( CPL_SOCKET_EVENT_TYPE_INVALID )
+{}
+
+Event::~Event() {
+    if ( eventHandle_ != CPL_INVALID_EVENT_HANDLE && !isSocketEvent_ ) {
+        ::close( eventHandle_ );
+    }
+}
+
+CPL_PLATFORM_EVENT Event::getEventHandle() const {
+    return eventHandle_;
+}
+
+bool Event::initializeEvent() {
+    if ( eventHandle_ != CPL_INVALID_EVENT_HANDLE ) {
+        return false;
+    }
+
+    eventHandle_ = eventfd( 0, EFD_NONBLOCK );
+
+    return ( eventHandle_ != CPL_INVALID_EVENT_HANDLE );
+}
+
+bool Event::initializeEvent( UdpSocket& udpSocket, CPL_SOCKET_EVENT_TYPES socketEventTypes ) {
+    if ( eventHandle_ != CPL_INVALID_EVENT_HANDLE ) {
+        return false;
+    }
+
+    if( !udpSocket.isOpen() ) {
+        return false;
+    }
+
+    if ( socketEventTypes == CPL_SOCKET_EVENT_TYPE_READ  ||
+         socketEventTypes == CPL_SOCKET_EVENT_TYPE_WRITE ||
+         socketEventTypes == ( CPL_SOCKET_EVENT_TYPE_READ | CPL_SOCKET_EVENT_TYPE_WRITE ) )
+    {
+        eventHandle_ = udpSocket.getSocketHandle();
+        isSocketEvent_ = true;
+        socketEventTypes_ = socketEventTypes;
+
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+bool Event::initializeEvent( TcpServerListenSocket& tcpServerListenSocket,
+                             CPL_SOCKET_EVENT_TYPES socketEventTypes)
+{
+    if ( eventHandle_ != CPL_INVALID_EVENT_HANDLE ) {
+        return false;
+    }
+
+    if( !tcpServerListenSocket.isOpen() ) {
+        return false;
+    }
+
+    if ( socketEventTypes == CPL_SOCKET_EVENT_TYPE_READ ) {
+        eventHandle_ = tcpServerListenSocket.getSocketHandle();
+        isSocketEvent_ = true;
+        socketEventTypes_ = socketEventTypes;
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+bool Event::initializeEvent( TcpServerExchangeSocket& tcpServerExchangeSocket,
+                             CPL_SOCKET_EVENT_TYPES socketEventTypes )
+{
+    if ( eventHandle_ != CPL_INVALID_EVENT_HANDLE ) {
+        return false;
+    }
+
+    if( !tcpServerExchangeSocket.isOpen() ) {
+        return false;
+    }
+
+    if ( socketEventTypes == CPL_SOCKET_EVENT_TYPE_READ  ||
+         socketEventTypes == CPL_SOCKET_EVENT_TYPE_WRITE ||
+         socketEventTypes == ( CPL_SOCKET_EVENT_TYPE_READ | CPL_SOCKET_EVENT_TYPE_WRITE ) )
+    {
+        eventHandle_ = tcpServerExchangeSocket.getSocketHandle();
+        isSocketEvent_ = true;
+        socketEventTypes_ = socketEventTypes;
+
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+bool Event::initializeEvent( TcpClientSocket& tcpClientSocket,
+                             CPL_SOCKET_EVENT_TYPES socketEventTypes )
+{
+    if ( eventHandle_ != CPL_INVALID_EVENT_HANDLE ) {
+        return false;
+    }
+
+    if( !tcpClientSocket.isOpen() ) {
+        return false;
+    }
+
+    if ( socketEventTypes == CPL_SOCKET_EVENT_TYPE_READ  ||
+         socketEventTypes == CPL_SOCKET_EVENT_TYPE_WRITE ||
+         socketEventTypes == ( CPL_SOCKET_EVENT_TYPE_READ | CPL_SOCKET_EVENT_TYPE_WRITE ) )
+    {
+        eventHandle_ = tcpClientSocket.getSocketHandle();
+        isSocketEvent_ = true;
+        socketEventTypes_ = socketEventTypes;
+
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+bool Event::setEvent() {
+    if ( eventHandle_ != CPL_INVALID_EVENT_HANDLE && !isSocketEvent_ ) {
+        if ( signaled_ ) {
+            return true;
+        }
+
+        signaled_ = true;
+
+        int32_t result =  eventfd_write( eventHandle_, 1 );
+
+        if ( result != -1 ) {
+            return true;
+        }
+        else {
+            signaled_ = false;
+            return false;
+        }
+    }
+    else {
+        return false;
+    }
+}
+
+bool Event::isSignaled() const {
+    if ( !isSocketEvent_ ) {
+        return signaled_;
+    }
+    else {
+        return false; // FIX
+    }
+}
+
+bool Event::resetEvent() {
+    if ( eventHandle_ != CPL_INVALID_EVENT_HANDLE && !isSocketEvent_ ) {
+        if ( !signaled_ ) {
+            return true;
+        }
+
+        signaled_ = false;
+
+        eventfd_t eventfdt;
+
+        return ( eventfd_read( eventHandle_, &eventfdt ) != -1 );
+    }
+    else {
+        return false;
+    }
+}
+
+void Event::close() {
+    if ( eventHandle_ != CPL_INVALID_EVENT_HANDLE ) {
+        if ( !isSocketEvent_ ) {
+            ::close( eventHandle_ );
+            eventHandle_ = CPL_INVALID_EVENT_HANDLE;
+            signaled_ = false;
+        }
+        else {
+            eventHandle_ = CPL_INVALID_EVENT_HANDLE;
+            signaled_ = false;
+            socketEventTypes_ = CPL_SOCKET_EVENT_TYPE_INVALID;
+            isSocketEvent_ = false;
+        }
+    }
+}
+
+bool Event::isSocketEvent() const {
+    return isSocketEvent_;
+}
+
+CPL_SOCKET_EVENT_TYPES Event::getSocketEventTypes() const {
+    return socketEventTypes_;
 }

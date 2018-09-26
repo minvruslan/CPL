@@ -63,7 +63,7 @@
 
 #define CPL_INVALID_EVENT_HANDLE ( 0 )
 
-#define CPL_EE_WFE_MAX_EVENTS                   ( 64 )
+#define CPL_EE_WFE_MAX_EVENTS                 (   1000 )
 #define CPL_EE_WFE_INFINITE_WAIT              ( 0xFFFF )
 #define CPL_EE_WFE_TIME_IS_UP                 ( 0xFFFF )
 #define CPL_EE_WFE_ERROR_INVALID_EVENT_HANDLE ( 0xFFFE )
@@ -71,9 +71,9 @@
 #define CPL_EE_WFE_ERROR_FAILED               ( 0xFFFC )
 #define CPL_EE_WFE_ALL_EVENTS_SIGNALED        ( 0xFFFB )
 
-#define CPL_SOCKET_EVENT_TYPE_ACCEPT ( 0x01 ) // 0x01 = 0b00000001
-#define CPL_SOCKET_EVENT_TYPE_READ   ( 0x02 ) // 0x02 = 0b00000010
-#define CPL_SOCKET_EVENT_TYPE_WRITE  ( 0x04 ) // 0x04 = 0b00000100
+#define CPL_SOCKET_EVENT_TYPE_INVALID ( 0x00 ) // 0x00 = 0b00000000
+#define CPL_SOCKET_EVENT_TYPE_READ    ( 0x01 ) // 0x01 = 0b00000001
+#define CPL_SOCKET_EVENT_TYPE_WRITE   ( 0x02 ) // 0x02 = 0b00000010
 
 #define NS_CPL_START namespace cpl {
 #define NS_CPL_END   }
@@ -99,6 +99,13 @@ enum class SocketType {
     TCP_CLIENT_SOCKET
 };
 
+// =========================================
+// ========== Forward declaration ==========
+// =========================================
+
+class TcpServerListenSocket;
+class Event;
+
 // ===============================================
 // ========== Class CplBase declaration ==========
 // ===============================================
@@ -106,7 +113,7 @@ enum class SocketType {
 class CplBase {
 public:
     static bool initialize();
-    static void close();
+    static void shutdown();
 };
 
 // =================================================
@@ -134,15 +141,16 @@ private:
 class SocketBase {
 protected:
     explicit SocketBase( SocketType socketType );
+    CPL_PLATFORM_SOCKET getSocketHandle() const;
 public:
     bool isOpen() const;
     void close();
-
-    CPL_PLATFORM_SOCKET getSocketHandle() const;
     SocketType getSocketType() const;
 protected:
     CPL_PLATFORM_SOCKET socketHandle_;
     SocketType socketType_;
+
+    friend class Event;
 };
 
 // =================================================
@@ -164,11 +172,13 @@ public:
 // ===============================================================
 
 class TcpServerExchangeSocket : public SocketBase {
-public:
+protected:
     explicit TcpServerExchangeSocket( CPL_PLATFORM_SOCKET socketHandle );
-
+public:
     int32_t receive( uint8_t* bufPtr, uint16_t bufSize );
     int32_t send( uint8_t* bufPtr, uint16_t bufSize);
+private:
+    friend class TcpServerListenSocket;
 };
 
 // =============================================================
@@ -180,7 +190,7 @@ public:
     TcpServerListenSocket();
 
     bool open( const uint16_t& portNumber, const bool& nonBlockingModeFlag, int32_t maxPendingConnections );
-    TcpServerExchangeSocket accept();
+    TcpServerExchangeSocket* accept();
 };
 
 // =======================================================
@@ -197,6 +207,16 @@ public:
     int32_t send( uint8_t* bufPtr, uint16_t bufSize);
 };
 
+// ======================================================
+// ========== Class EventExpectant declaration ==========
+// ======================================================
+
+class EventExpectant {
+public:
+    static uint32_t waitForEvent( Event* event, uint32_t milliseconds = 0 );
+    static uint32_t waitForEvents( std::vector<Event*>* events, bool waitAll, uint32_t milliseconds = 0 );
+};
+
 // =============================================
 // ========== Class Event declaration ==========
 // =============================================
@@ -205,8 +225,6 @@ class Event {
 public:
     Event();
     ~Event();
-
-    CPL_PLATFORM_EVENT getEventHandle() const;
 
     bool initializeEvent();
     bool initializeEvent( UdpSocket& udpSocket,
@@ -221,24 +239,20 @@ public:
     bool isSignaled() const;
     bool resetEvent();
 
+    void close();
+
     bool isSocketEvent() const;
     CPL_SOCKET_EVENT_TYPES getSocketEventTypes() const;
+protected:
+    CPL_PLATFORM_EVENT getEventHandle() const;
 private:
     CPL_PLATFORM_EVENT eventHandle_;
     bool signaled_;
 
     bool isSocketEvent_;
     CPL_SOCKET_EVENT_TYPES socketEventTypes_;
-};
 
-// ======================================================
-// ========== Class EventExpectant declaration ==========
-// ======================================================
-
-class EventExpectant {
-public:
-    static uint32_t waitForEvent( Event* event, uint32_t milliseconds = 0 );
-    static uint32_t waitForEvents( std::vector<Event*>* events, bool waitAll, uint32_t milliseconds = 0 );
+    friend class EventExpectant;
 };
 
 NS_CPL_END
