@@ -196,11 +196,9 @@ int32_t UdpSocket::sendTo( uint8_t* bufPtr, uint16_t bufSize, IpAddress& ipAddre
 // ========== Class TcpServerExchangeSocket definition ==========
 // ==============================================================
 
-TcpServerExchangeSocket::TcpServerExchangeSocket( CPL_PLATFORM_SOCKET  socketHandle) :
+TcpServerExchangeSocket::TcpServerExchangeSocket() :
     SocketBase( SocketType::TCP_SERVER_EXCHANGE_SOCKET )
-{
-    socketHandle_ = socketHandle;
-}
+{}
 
 int32_t TcpServerExchangeSocket::receive( uint8_t* bufPtr, uint16_t bufSize ) {
     if ( socketHandle_ == CPL_INVALID_SOCKET_HANDLE ) {
@@ -234,6 +232,16 @@ int32_t TcpServerExchangeSocket::send( uint8_t* bufPtr, uint16_t bufSize ) {
     }
     else {
         return CPL_TCP_SOCKET_ERROR_SEND_FAILED;
+    }
+}
+
+bool TcpServerExchangeSocket::setSocketHandle( CPL_PLATFORM_SOCKET socketHandle ) {
+    if ( socketHandle != CPL_INVALID_SOCKET_HANDLE ) {
+        socketHandle_ = socketHandle;
+        return true;
+    }
+    else {
+        return false;
     }
 }
 
@@ -273,20 +281,22 @@ bool TcpServerListenSocket::open( const uint16_t& portNumber,
     return true;
 }
 
-TcpServerExchangeSocket* TcpServerListenSocket::accept() {
+bool TcpServerListenSocket::accept( TcpServerExchangeSocket* tcpServerExchangeSocket ) {
+    if ( tcpServerExchangeSocket->getSocketHandle() != CPL_INVALID_SOCKET_HANDLE ) {
+        return false;
+    }
+
     sockaddr_in clientAddress;
     socklen_t clientAddressLen = sizeof( sockaddr_in );
 
     CPL_PLATFORM_SOCKET socketHandle = ::accept( socketHandle_, ( sockaddr* )&clientAddress, &clientAddressLen );
 
-    TcpServerExchangeSocket* tcpServerExchangeSocket;
-
     if ( socketHandle >= 0 ) {
-        tcpServerExchangeSocket = new TcpServerExchangeSocket( socketHandle );
-        return tcpServerExchangeSocket;
+        tcpServerExchangeSocket->setSocketHandle( socketHandle );
+        return true;
     }
     else {
-        return nullptr;
+        return false;
     }
 }
 

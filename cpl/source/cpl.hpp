@@ -78,6 +78,8 @@
 #define NS_CPL_START namespace cpl {
 #define NS_CPL_END   }
 
+NS_CPL_START
+
 // ==============================
 // ========== Typedefs ==========
 // ==============================
@@ -85,8 +87,6 @@
 typedef int32_t CPL_PLATFORM_SOCKET;
 typedef int32_t CPL_PLATFORM_EVENT;
 typedef uint8_t CPL_SOCKET_EVENT_TYPES;
-
-NS_CPL_START
 
 // ===========================
 // ========== Enums ==========
@@ -172,12 +172,13 @@ public:
 // ===============================================================
 
 class TcpServerExchangeSocket : public SocketBase {
-protected:
-    explicit TcpServerExchangeSocket( CPL_PLATFORM_SOCKET socketHandle );
 public:
+    TcpServerExchangeSocket();
+
     int32_t receive( uint8_t* bufPtr, uint16_t bufSize );
     int32_t send( uint8_t* bufPtr, uint16_t bufSize);
-private:
+protected:
+    bool setSocketHandle( CPL_PLATFORM_SOCKET socketHandle );
     friend class TcpServerListenSocket;
 };
 
@@ -190,7 +191,7 @@ public:
     TcpServerListenSocket();
 
     bool open( const uint16_t& portNumber, const bool& nonBlockingModeFlag, int32_t maxPendingConnections );
-    TcpServerExchangeSocket* accept();
+    bool accept( TcpServerExchangeSocket* tcpServerExchangeSocket );
 };
 
 // =======================================================
