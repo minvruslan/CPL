@@ -210,6 +210,7 @@ int32_t TcpServerExchangeSocket::receive( uint8_t* bufPtr, uint16_t bufSize ) {
     }
 
     ssize_t numberOfReceivedBytes = ::recv( socketHandle_, bufPtr, bufSize, 0 );
+
     if ( numberOfReceivedBytes >= 0 ) {
         return ( int32_t )numberOfReceivedBytes;
     }
@@ -227,8 +228,13 @@ int32_t TcpServerExchangeSocket::send( uint8_t* bufPtr, uint16_t bufSize ) {
         return CPL_TCP_SOCKET_ERROR_INVALID_BUFFER;
     }
 
-    if ( ::send( socketHandle_ , bufPtr , bufSize , 0 ) >= 0 ) {
+    ssize_t bytesSend = ::send( socketHandle_ , bufPtr , bufSize , 0 );
+
+    if ( bytesSend == bufSize ) {
         return CPL_TCP_SOCKET_SEND_OK;
+    }
+    else if ( bytesSend >= 0 ) {
+        return ( int32_t )bytesSend;
     }
     else {
         return CPL_TCP_SOCKET_ERROR_SEND_FAILED;
